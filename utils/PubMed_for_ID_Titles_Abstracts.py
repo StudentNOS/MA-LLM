@@ -5,7 +5,7 @@ import sqlite3
 import requests
 import xml.etree.ElementTree as ET
 import pandas as pd
-from db import insert, execute_query, ENSURE
+from dbconnect import insert, execute_query, ENSURE
 
 # Insert data into the 'study' table
 def insert_data(ENSURE, data):
