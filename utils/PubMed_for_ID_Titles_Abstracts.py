@@ -90,7 +90,7 @@ if __name__ == "__main__":
 #Create Excel table from SQLite database
 #with sqlite3.connect(ENSURE) as conn:
     #df = pd.read_sql_query("SELECT * FROM study", conn)
-    #df.to_excel("C:/Users/tillj/Desktop/ensure.xlsx", index=False)
+    #df.to_excel("ensure.xlsx", index=False)
 
 #Function for deletion
 #def delete_all_abstracts(ENSURE='ensure.sqlite'):
