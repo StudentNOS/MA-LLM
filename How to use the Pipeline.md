@@ -3,7 +3,7 @@
 
 
 2.	Load utils script “dbconnect.py“
- creates SQLite-database “ensure.sqlite” on your PC 
+-> creates SQLite-database “ensure.sqlite” on your PC 
 
 
 3.	Load utils script “PubMed_for_ID_Titles_Abstracts.py” 
