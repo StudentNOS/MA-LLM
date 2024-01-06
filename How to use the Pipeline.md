@@ -3,24 +3,24 @@
 
 
 2.	Load utils script “dbconnect.py“
--> creates SQLite-database “ensure.sqlite” on your PC 
+   -> creates SQLite-database “ensure.sqlite” on your PC 
 
 
-3.	Load utils script “PubMed_for_ID_Titles_Abstracts.py” 
--> asks search terms for PubMed query 
--> searches PubMed API for the search terms you enter 
--> saves IDs to SQLite-database
--> creates Excel-table from database (“ensure.xlsx”) 
--> outputs how many papers are in database
+3.	Load utils script “PubMed_for_ID_Titles_Abstracts.py
+   -> asks search terms for PubMed query
+  	-> searches PubMed API for the search terms you enter
+  	-> saves IDs to SQLite-database
+  	-> creates Excel-table from database (“ensure.xlsx”)
+  	-> outputs how many papers are in database
 ![image](https://github.com/BerlinExchangeMedicine/ensure/assets/133876003/c3e68c1e-d0ed-4e4a-9f3e-eff9cb736656)
 
 
-4.	 Load script “title_screening.py” 
--> requires OpenAI API-key of NOS-account (can be given upon request) 
--> requires you to download the “initial_search.txt” and “golden_ref.txt” files (soon on GitHub)
--> contains prompt for prompt-engineering
--> asks search terms for screening 
--> screens the extracted PubMed titles for the search terms you enter 
+4.	 Load script “title_screening.py”
+   -> requires OpenAI API-key of NOS-account (can be given upon request)
+  	-> requires you to download the “initial_search.txt” and “golden_ref.txt” files (soon on GitHub)
+  	-> contains prompt for prompt-engineering
+  	-> asks search terms for screening
+  	-> screens the extracted PubMed titles for the search terms you enter 
 ![image](https://github.com/BerlinExchangeMedicine/ensure/assets/133876003/e31850a7-8c9d-4f3d-a8a7-4cdf06943d74)
 
 -> Outputs 3 percentages: 
@@ -30,6 +30,6 @@ c.	GPT X Initial Search (What percentage of the initial search IDs was extracted
 ![image](https://github.com/BerlinExchangeMedicine/ensure/assets/133876003/a38c3505-d596-450f-85de-fd6b2e7a9bdf)
 
 
-5.	Load script “abstract_screening.py” 
--> Ideally outputs the same as “title_screening.py” 
- -> If not, gives GPT-output for manual comparison of extracted abstracts 
+5.	Load script “abstract_screening.py”
+   -> Ideally outputs the same as “title_screening.py”
+  	 -> If not, gives GPT-output for manual comparison of extracted abstracts 
