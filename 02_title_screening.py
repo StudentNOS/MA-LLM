@@ -110,13 +110,13 @@ def main():
     pmids = get_pubmed_ids_for_titles(screened_titles)
 
     # Save PubMed IDs to a text file
-    save_pmids_to_file(pmids, "C:/Users/tillj/Desktop/GPT_screening_titles.txt")
+    save_pmids_to_file(pmids, "GPT_screening_titles.txt")
 
     print("PubMed IDs saved to GPT_screening_titles.txt")
     
-    gpt_file_path = "C:/Users/tillj/Desktop/GPT_screening_titles.txt"
-    gold_file_path = "C:/Users/tillj/Desktop/gold_ref.txt"
-    initial_search_file_path = "C:/Users/tillj/Desktop/initial_search.txt"
+    gpt_file_path = "GPT_screening_titles.txt"
+    gold_file_path = "gold_ref.txt"
+    initial_search_file_path = "initial_search.txt"
     percentages = performance_indicator(gpt_file_path, gold_file_path, initial_search_file_path)
     
     print(f"GPT/Gold Standard (should be as high as possible): {percentages[0]:.2f}%")
