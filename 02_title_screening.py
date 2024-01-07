@@ -119,9 +119,9 @@ def main():
     initial_search_file_path = "initial_search.txt"
     percentages = performance_indicator(gpt_file_path, gold_file_path, initial_search_file_path)
     
-    print(f"GPT/Gold Standard (should be as high as possible): {percentages[0]:.2f}%")
-    print(f"Gold Standard/Initial Search (reference value): {percentages[1]:.2f}%")
-    print(f"GPT/Initial Search (should be as close to reference value as possible): {percentages[2]:.2f}%")
+    print(f"Precision (GPT/Gold Standard): {percentages[0]:.2f}%")
+    print(f"Proportion covered (Gold Standard): {percentages[1]:.2f}%")
+    print(f"Proportion covered (GPT): {percentages[2]:.2f}%")
 
 if __name__ == "__main__":
     main()
