@@ -97,20 +97,23 @@ def init_db(db=ENSURE):
     """)
         conn.commit()
 
-def execute_query(query, db=ENSURE):
+def execute_query(query, db=ENSURE, params=None):
     """
-    Executes a given SQL query and returns the fetched results.
+    Executes a given SQL query with optional parameters and returns the fetched results.
     """
     try:
         with sqlite3.connect(db) as conn:
-            c = conn.cursor()
-            for statement in query.split(";"):
-                statement = statement.strip()
-                if not statement:
-                    continue
-                c.execute(statement)
+            cursor = conn.cursor()
+            if params:
+                cursor.execute(query, params)
+            else:
+                # Splitting and executing each statement if multiple statements are passed without params
+                for statement in query.split(";"):
+                    statement = statement.strip()
+                    if statement:
+                        cursor.execute(statement)
             conn.commit()
-            return c.fetchall()
+            return cursor.fetchall()
     except sqlite3.Error as e:
         print(f"An error occurred: {e}")
         return []
