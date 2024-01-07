@@ -52,3 +52,4 @@ c.	**Proportion covered (GPT):**GPT X Initial Search (What percentage of the ini
 -> If not, gives GPT-output for manual comparison of extracted abstracts 
 
 -> Only change content prompt and leave format prompts unchanged
+![image](https://github.com/BerlinExchangeMedicine/ensure/assets/133876003/697aa131-4096-4329-8373-63dc8b69a4db)
