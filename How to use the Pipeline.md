@@ -37,11 +37,11 @@
 
 _-> Outputs 3 percentages:_ 
 
-a.	GPT x Gold Standard (i.e., What percentage of the IDs in the gold standard did GPT also find?) = should be as close to 100% as possible 
+a.	**Precision:** GPT x Gold Standard (i.e., What percentage of the IDs in the gold standard did GPT also find?) = should be as close to 100% as possible 
 
-b.	Gold Standard X Initial Search (i.e., What percentage of the initial search IDs was extracted manually in gold standard) = serves as reference value for c
+b.	**Proportion covered (Gold standard):** Gold Standard X Initial Search (i.e., What percentage of the initial search IDs was extracted manually in gold standard) = serves as reference value for c
 
-c.	GPT X Initial Search (What percentage of the initial search IDs was extracted by GPT) = should be as close to reference value/b as possible 
+c.	**Proportion covered (GPT):**GPT X Initial Search (What percentage of the initial search IDs was extracted by GPT) = should be as close to reference value/b as possible 
 ![image](https://github.com/BerlinExchangeMedicine/ensure/assets/133876003/a38c3505-d596-450f-85de-fd6b2e7a9bdf)
 
 
@@ -50,3 +50,5 @@ c.	GPT X Initial Search (What percentage of the initial search IDs was extracted
 -> Ideally outputs the same as “title_screening.py”
 
 -> If not, gives GPT-output for manual comparison of extracted abstracts 
+
+-> Only change content prompt and leave format prompts unchanged
