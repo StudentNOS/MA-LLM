@@ -16,5 +16,6 @@ def generate_openai_response(prompt):
 
 prompt = "Analyze the following study plan: study plan"
 search_tearms = "From this study plan, generate a list of possible search terms..."
-response = generate_openai_response(prompt, search_terms)
+format = "Specify format of response"
+response = generate_openai_response(prompt, search_terms, format)
 print(response)
