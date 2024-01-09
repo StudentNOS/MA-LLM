@@ -41,7 +41,7 @@ a.	**Precision:** GPT x Gold Standard (i.e., What percentage of the IDs in the g
 
 b.	**Proportion covered (Gold standard):** Gold Standard X Initial Search (i.e., What percentage of the initial search IDs was extracted manually in gold standard) = serves as reference value for c
 
-c.	**Proportion covered (GPT):**GPT X Initial Search (What percentage of the initial search IDs was extracted by GPT) = should be as close to reference value/b as possible 
+c.	**Proportion covered (GPT):** GPT X Initial Search (What percentage of the initial search IDs was extracted by GPT) = should be as close to reference value/b as possible 
 ![image](https://github.com/BerlinExchangeMedicine/ensure/assets/133876003/a38c3505-d596-450f-85de-fd6b2e7a9bdf)
 
 
