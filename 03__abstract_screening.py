@@ -4,7 +4,7 @@
 from utils.dbconnect import execute_query, ENSURE
 from openai import OpenAI
 
-client = OpenAI(api_key='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')
+client = OpenAI(api_key='upon request')
 
 # Function to fetch all abstracts from the database
 def get_all_abstracts():
