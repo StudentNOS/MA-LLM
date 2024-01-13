@@ -15,7 +15,7 @@ def generate_openai_response(prompt):
     return response.choices[0].text.strip()
 
 prompt = "Analyze the following study plan: study plan"
-search_tearms = "From this study plan, generate a list of possible inclusion and exclusion criteria..."
+search_terms = "From this study plan, generate a list of possible inclusion and exclusion criteria..."
 format = "Specify format of response"
 response = generate_openai_response(prompt, search_terms, format)
 print(response)
