@@ -1,7 +1,7 @@
 # Input: Search terms
 # Output: Pre-selected papers based on titles
 
-from dbconnect import execute_query, ENSURE
+from utils.dbconnect import execute_query, ENSURE
 from openai import OpenAI
 
 client = OpenAI(api_key='API-key upon request')
