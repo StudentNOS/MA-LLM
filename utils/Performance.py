@@ -1,5 +1,30 @@
 import sqlite3
 from dbconnect import ENSURE
+DB_PATH = "ensure.sqlite"
+
+def fetch_pmids_from_db(db_path):
+    """
+    Fetches all PMIDs from the meta_analysis table in the database.
+    """
+    query = "SELECT pmid FROM meta_analysis"
+    pmids = []
+    try:
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(query)
+            pmids = [row[0] for row in cursor.fetchall()]
+    except sqlite3.Error as e:
+        print(f"An error occurred: {e}")
+    return pmids
+
+def create_initial_gpt_file(pmids, filename="GPT_Initial.txt"):
+    """
+    Creates a text file with one PMID per line.
+    """
+    with open(filename, "w") as file:
+        for pmid in pmids:
+            file.write(f"{pmid}\n")
+    print(f"File {filename} created with PMIDs.")
 
 def read_ids_from_database():
     with sqlite3.connect(ENSURE) as conn:
@@ -39,6 +64,9 @@ def calculate_performance_metrics(goldstandard_initial, goldstandard_selected, g
     return sensitivity, specificity, tp, tn, fp, fn
 
 def main():
+    pmids = fetch_pmids_from_db(DB_PATH)
+    create_initial_gpt_file(pmids)
+
     # Part 1: Calculate overlap percentages
     database_ids = read_ids_from_database()
     file_ids = read_ids_from_file("Goldstandard_Initial.txt")  # Adjust file path as necessary
