@@ -99,7 +99,7 @@ def main():
     pmids = get_pubmed_ids_for_abstracts(screened_abstract_initials, abstracts)
 
     # Save PubMed IDs to a text file
-    save_pmids_to_file(pmids, "C:/Users/tillj/Desktop/GPT_screening_abstracts.txt")
+    save_pmids_to_file(pmids, "GPT_Selected.txt")
     print("PubMed IDs saved to GPT_screening_abstracts.txt")
 
 if __name__ == "__main__":
