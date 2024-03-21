@@ -6,8 +6,8 @@ import pandas as pd  # Import pandas for data manipulation
 # Replace 'your_email' with your actual email address
 Entrez.email = "Entrez.Email"
 
-def search_pubmed(search_term):
-    handle = Entrez.esearch(db="pubmed", term=search_term, retmax=1000)
+def search_pubmed(search_term, start_year, end_year):
+    handle = Entrez.esearch(db="pubmed", term=search_term, retmax=1000, mindate=start_year, maxdate=end_year, datetype="pdat")
     record = Entrez.read(handle)
     handle.close()
     return record["IdList"]
@@ -40,7 +40,10 @@ def create_excel_from_db():
 
 def main():
     search_term = input("Enter PubMed search term: ")
-    pmids = search_pubmed(search_term)
+    start_year = input("Enter start year (Lower Bound): ")
+    end_year = input("Enter end year (Upper Bound): ")
+    
+    pmids = search_pubmed(search_term, start_year, end_year)
     records = fetch_details(pmids)
     
     for article in records["PubmedArticle"]:
@@ -48,7 +51,6 @@ def main():
         article_data = article["MedlineCitation"]["Article"]
         title = article_data.get("ArticleTitle", "")
         
-        # Corrected abstract text extraction
         abstract_text = ""
         if "Abstract" in article_data:
             abstract_text = " ".join([str(abstract) for abstract in article_data["Abstract"]["AbstractText"]])
