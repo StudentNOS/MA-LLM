@@ -4,10 +4,10 @@ from dbconnect import insert, execute_query, ENSURE  # Importing from your dbcon
 import pandas as pd  # Import pandas for data manipulation
 
 # Replace 'your_email' with your actual email address
-Entrez.email = "Entrez.Email"
+Entrez.email = "Entrez Email"
 
 def search_pubmed(search_term, start_year, end_year):
-    handle = Entrez.esearch(db="pubmed", term=search_term, retmax=1000, mindate=start_year, maxdate=end_year, datetype="pdat")
+    handle = Entrez.esearch(db="pubmed", term=search_term, retmax=100, mindate=start_year, maxdate=end_year, datetype="pdat")
     record = Entrez.read(handle)
     handle.close()
     return record["IdList"]
@@ -46,22 +46,26 @@ def main():
     pmids = search_pubmed(search_term, start_year, end_year)
     records = fetch_details(pmids)
     
-    for article in records["PubmedArticle"]:
-        pmid = article["MedlineCitation"]["PMID"]
-        article_data = article["MedlineCitation"]["Article"]
-        title = article_data.get("ArticleTitle", "")
-        
-        abstract_text = ""
-        if "Abstract" in article_data:
-            abstract_text = " ".join([str(abstract) for abstract in article_data["Abstract"]["AbstractText"]])
-        
-        insert("meta_analysis", {"pmid": pmid, "title": title, "abstract": abstract_text}, ENSURE, False)
-        print(f"Inserted: {pmid}")
+    with open("Initial.txt", "w") as pmid_file:  # Open a file to write PMIDs
+        for article in records["PubmedArticle"]:
+            pmid = article["MedlineCitation"]["PMID"]
+            pmid_file.write(pmid + "\n")  # Write each PMID on a new line
+            
+            article_data = article["MedlineCitation"]["Article"]
+            title = article_data.get("ArticleTitle", "")
+            
+            abstract_text = ""
+            if "Abstract" in article_data:
+                abstract_text = " ".join([str(abstract) for abstract in article_data["Abstract"]["AbstractText"]])
+            
+            insert("meta_analysis", {"pmid": pmid, "title": title, "abstract": abstract_text}, ENSURE, False)
+            print(f"Inserted: {pmid}")
 
     paper_count = count_papers()
     print(f"Total number of papers in the database: {paper_count}")
 
     create_excel_from_db()
+
 
 if __name__ == "__main__":
     main()
