@@ -6,36 +6,37 @@ from openai import OpenAI
 
 client = OpenAI(api_key='upon-request')
 
-# Function to fetch all abstracts from the database
-def get_all_abstracts():
+# Function to fetch abstracts and PubMed IDs from the database (prescreened for titles)
+def get_abstracts_and_ids():
     """
-    Fetches all abstracts from the database.
+    Fetches all abstracts and their corresponding PubMed IDs from the database 
+    for papers selected in title screening.
     """
-    query = "SELECT abstract FROM study"
-    abstracts = execute_query(query, ENSURE)
-    return [abstract[0] for abstract in abstracts]
+    query = "SELECT pmid, abstract FROM meta_analysis WHERE selected_title = TRUE"
+    results = execute_query(query, db=ENSURE)
+    return [(result[0], result[1]) for result in results if result[1]]
+
+#Alternatively: Fetch abstracts for ALL extracted PubMed IDs
+#def get_all_abstracts():
+#    query = "SELECT abstract FROM study"
+#    abstracts = execute_query(query, ENSURE)
+#    return [abstract[0] for abstract in abstracts]
 
 # Function to create a prompt for OpenAI
 def generate_prompt(search_term, abstracts):
     """
     Generates a prompt for OpenAI based on a search term and a list of abstracts.
     """
-    # Filter out empty abstracts
-    abstracts = [abstract for abstract in abstracts if abstract]
-
-    # Create a prompt with the search term and list of abstracts
     prompt = f"Search Term: {search_term}\n\nList of abstracts:\n"
-    prompt += "\n".join(abstract for abstract in abstracts)
-
-    # Ask which abstracts are relevant to the search term
+    prompt += "\n".join(abstract for _, abstract in abstracts)
     prompt += "\n\nIdentify which of these abstracts are relevant to the search term."
-
-    # Instruct to provide output in the specified format
+    
+    #Formatting
     prompt += "\n\nFormat the output as a comma-separated string with each entry enclosed in single quotes. "
     prompt += "Each entry should be the first 10 characters of each relevant abstract. "
     prompt += "For example: 'Example AB', 'Example CD', 'Example EF'."
-
     return prompt
+
 # Function to screen abstracts using OpenAI API
 def screen_abstracts_with_openai(prompt):
     """
@@ -48,59 +49,56 @@ def screen_abstracts_with_openai(prompt):
             max_tokens=2048
         )
         response_text = response.choices[0].message.content.strip()
-
-        # Debugging: Print the complete response text
         print("Full Response Text:", response_text)
-
-        # Split the response at each occurrence of ', '
-        # Trim the single quotes from each item
         split_results = [item.strip("'") for item in response_text.split("', '")]
-
-        # Debugging: Print the split results
         print("Split Results:", split_results)
-
         return split_results
     except Exception as e:
         print(f"Error in OpenAI API call: {e}")
         return []
 
-def get_pubmed_ids_for_abstracts(abstract_initials, abstracts):
-    pmids = []
-    for initial in abstract_initials:
-        initial = initial.strip("'")
-        matching_abstracts = [abstract for abstract in abstracts if abstract.startswith(initial)]
-        for abstract in matching_abstracts:
-            query = "SELECT pmid FROM study WHERE abstract = ?"
-            result = execute_query(query, ENSURE, params=(abstract,))
-            if result:
-                pmids.extend([res[0] for res in result])
-    return pmids
+def match_abstracts_to_ids(initials, abstracts_with_ids):
+    """
+    Matches the first 10 characters of relevant abstracts to their PubMed IDs.
+    """
+    matched_ids = []
+    for initial in initials:
+        for pmid, abstract in abstracts_with_ids:
+            if abstract.startswith(initial):
+                matched_ids.append(pmid)
+                break
+    return matched_ids
 
 def save_pmids_to_file(pmids, file_path):
     """
     Saves a list of PubMed IDs to a text file.
     """
-    with open(file_path, 'w') as file:
-        for pmid in pmids:
-            file.write(f"{pmid}\n")
+    try:
+        with open(file_path, 'w') as file:
+            for pmid in pmids:
+                file.write(f"{pmid}\n")
+        print(f"Successfully saved {len(pmids)} PMIDs to {file_path}")
+    except Exception as e:
+        print(f"Failed to save PMIDs to file: {e}")
 
-# Main function for GPT screening
+def mark_abstract_selections(pmids, selected=True):
+    """
+    Mark papers as selected based on abstract screening.
+    """
+    placeholders = ', '.join('?' * len(pmids))
+    query = f"UPDATE meta_analysis SET selected_abstract = ? WHERE pmid IN ({placeholders})"
+    execute_query(query, params=[selected] + pmids)
+
 def main():
     search_term = input("Enter search term: ")
-    abstracts = get_all_abstracts()
-    prompt = generate_prompt(search_term, abstracts)
+    abstracts_with_ids = get_abstracts_and_ids()
+    prompt = generate_prompt(search_term, abstracts_with_ids)
     screened_abstract_initials = screen_abstracts_with_openai(prompt)
-
-    # Print OpenAI Response
-    print("OpenAI Response with Abstract Initials:")
-    print(screened_abstract_initials)
-
-    # Get PubMed IDs for screened abstracts based on their initials
-    pmids = get_pubmed_ids_for_abstracts(screened_abstract_initials, abstracts)
-
-    # Save PubMed IDs to a text file
-    save_pmids_to_file(pmids, "GPT_Selected.txt")
-    print("PubMed IDs saved to GPT_screening_abstracts.txt")
+    matched_pmids = match_abstracts_to_ids(screened_abstract_initials, abstracts_with_ids)
+    mark_abstract_selections(matched_pmids, selected=True)
+    print("PMIDs to be saved:", matched_pmids)
+    save_pmids_to_file(matched_pmids, "C:/Users/tillj/Desktop/GPT_Selected.txt")
+    print("PubMed IDs saved to GPT_Selected.txt")
 
 if __name__ == "__main__":
     main()
