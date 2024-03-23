@@ -95,6 +95,20 @@ def init_db(db=ENSURE):
                 table_1 TEXT
         );
     """)
+        # New commands to add selection columns
+    try:
+        cursor.execute("""
+            ALTER TABLE meta_analysis ADD COLUMN selected_title BOOLEAN DEFAULT FALSE;
+        """)
+    except sqlite3.OperationalError:
+        pass  # Ignore error if column already exists
+
+    try:
+        cursor.execute("""
+            ALTER TABLE meta_analysis ADD COLUMN selected_abstract BOOLEAN DEFAULT FALSE;
+        """)
+    except sqlite3.OperationalError:
+        pass  # Ignore error if column already exists
         conn.commit()
 
 def execute_query(query, db=ENSURE, params=None):
