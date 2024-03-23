@@ -2,7 +2,7 @@ import sqlite3
 import pandas as pd
 import matplotlib.pyplot as plt
 
-DB_PATH = "C:/Users/tillj/.spyder-py3/ensure.sqlite"  # Update this to your actual database path
+DB_PATH = "ensure.sqlite"  # Update this to your actual database path
 
 def fetch_data_for_report_and_chart():
     """
