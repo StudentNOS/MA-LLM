@@ -4,13 +4,19 @@ from dbconnect import insert, execute_query, ENSURE  # Importing from your dbcon
 import pandas as pd  # Import pandas for data manipulation
 
 
-def delete_all_abstracts(ENSURE):
-    with sqlite3.connect(ENSURE) as conn:
+def delete_all_data(db_path):
+    with sqlite3.connect(db_path) as conn:
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM meta_analysis")
+        # List all tables you want to clear
+        tables_to_clear = ['meta_analysis', 'study', 'llm_study_extraction', 'llm_ma_generation']
+        for table in tables_to_clear:
+            cursor.execute(f"DELETE FROM {table}")
+        print("All tables have been cleared.")
         conn.commit()
-        print("Study table has been cleared.")
+
 def main():
-    delete_all_abstracts(ENSURE)
+    db_path = ENSURE  # Ensure this is your database path
+    delete_all_data(db_path)
+
 if __name__ == "__main__":
     main()
