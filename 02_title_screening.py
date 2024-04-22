@@ -1,27 +1,18 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Apr 22 19:03:55 2024 by Till Adam
+from dbconnect import execute_query, ENSURE
+from openai import OpenAI
 
-This script is designed to screen PubMed titles using the OpenAI API to identify relevant papers based on a user-provided search term. 
-The results are then saved and marked in a local database.
-
-"""
-
-from dbconnect import execute_query, ENSURE  # Import custom database functions and database path.
-from openai import OpenAI  # Import the OpenAI library to interact with GPT models.
-
-client = OpenAI(api_key='upon-request')  # Create an OpenAI client with the provided API key.
+client = OpenAI(api_key='upon request')
 
 # Generator function to fetch titles in batches from the database
 def get_titles_in_batches(batch_size=100):
-    offset = 0  # Initialize offset for SQL pagination
+    offset = 0  
     while True:
-        query = f"SELECT title FROM meta_analysis LIMIT {batch_size} OFFSET {offset}"  # SQL query to fetch a batch of titles
-        titles = execute_query(query, ENSURE)  # Execute the query using a custom function
+        query = f"SELECT title FROM meta_analysis LIMIT {batch_size} OFFSET {offset}" 
+        titles = execute_query(query, ENSURE)  
         if not titles:
-            break  # Exit the loop if no more titles are found
-        yield [title[0] for title in titles]  # Yield the current batch of titles as a list
-        offset += batch_size  # Increase the offset for the next batch
+            break  
+        yield [title[0] for title in titles]
+        offset += batch_size  
 
 # Function to create a prompt for OpenAI based on a given search term and list of titles
 def generate_prompt(search_term, titles):
@@ -29,8 +20,8 @@ def generate_prompt(search_term, titles):
     Constructs a detailed prompt for the OpenAI API call.
     """
     prompt = f"Search Term: {search_term}\n\nList of titles:\n"
-    prompt += "\n".join(f"{i}. {title}" for i, title in enumerate(titles, 1))  # Format titles as a numbered list
-    prompt += "\n\nWhich of these titles are relevant to the search term?"  # Question to ask GPT
+    prompt += "\n".join(f"{i}. {title}" for i, title in enumerate(titles, 1))
+    prompt += "\n\nWhich of these titles are relevant to the search term?" #Prompt Engineering Hier
     return prompt
 
 # Function to screen titles using the OpenAI API
@@ -40,11 +31,11 @@ def screen_titles_with_openai(prompt):
     """
     try:
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",  # Specify the GPT model to use
+            model="gpt-3.5-turbo",  
             messages=[{"role": "system", "content": prompt}],
-            max_tokens=2048  # Limit the maximum number of tokens in the response
+            max_tokens=2048  
         )
-        return response.choices[0].message.content.strip()  # Extract and return the content from the response
+        return response.choices[0].message.content.strip()  
     except Exception as e:
         print(f"Error in OpenAI API call: {e}")
         return ""
@@ -56,10 +47,10 @@ def get_pubmed_ids_for_titles(screened_titles):
     """
     pmids = []
     for title in screened_titles:
-        query = "SELECT pmid FROM meta_analysis WHERE title = ?"  # SQL query to fetch PubMed ID for a title
-        result = execute_query(query, ENSURE, params=(title,))  # Execute the query with the title as a parameter
+        query = "SELECT pmid FROM meta_analysis WHERE title = ?"  
+        result = execute_query(query, ENSURE, params=(title,))
         if result:
-            pmids.extend([res[0] for res in result])  # Collect all found PubMed IDs
+            pmids.extend([res[0] for res in result])
     return pmids
 
 # Function to save PubMed IDs to a file
@@ -69,16 +60,16 @@ def save_pmids_to_file(pmids, file_path):
     """
     with open(file_path, 'w') as file:
         for pmid in pmids:
-            file.write(f"{pmid}\n")  # Write each PubMed ID to the file
+            file.write(f"{pmid}\n")  
 
 # Function to mark titles as selected in the database
 def mark_title_selections(pmids, selected=True):
     """
     Updates the database to mark the selected titles, indicating they have passed the screening process.
     """
-    placeholders = ', '.join('?' * len(pmids))  # Create a placeholder for each PMID
-    query = f"UPDATE meta_analysis SET selected_title = ? WHERE pmid IN ({placeholders})"  # SQL query to update selection status
-    execute_query(query, params=[selected] + pmids)  # Execute the update query
+    placeholders = ', '.join('?' * len(pmids))  
+    query = f"UPDATE meta_analysis SET selected_title = ? WHERE pmid IN ({placeholders})"  
+    execute_query(query, params=[selected] + pmids)  
 
 # Main function for GPT screening
 def main():
