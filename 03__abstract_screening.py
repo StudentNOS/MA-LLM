@@ -29,7 +29,11 @@ def generate_prompt(search_term, abstracts):
     """
     prompt = f"Search Term: {search_term}\n\nList of abstracts:\n"
     prompt += "\n".join(abstract for _, abstract in abstracts)
+
+    #Prompt Engineering Hier
     prompt += "\n\nIdentify which of these abstracts are relevant to the search term."
+
+    #NICHT verändern
     prompt += "\n\nFormat the output as a comma-separated string with each entry enclosed in single quotes. "
     prompt += "Each entry should be the first 10 characters of each relevant abstract. "
     prompt += "For example: 'Example AB', 'Example CD', 'Example EF'."
