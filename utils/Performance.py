@@ -35,8 +35,8 @@ def create_performance_table(tp, tn, fp, fn, sensitivity, specificity, PPV, NPV,
     """
     # Table data
     cell_text = [
-        [f"True Positive\n(TP)\n{tp}", f"False Positive\n(FP)\n{fp}", f"PPV\n{PPV:.2f}"],
-        [f"False Negative\n(FN)\n{fn}", f"True Negative\n(TN)\n{tn}", f"NPV\n{NPV:.2f}"],
+        [f"True Positive\n(TP)\n{tp}", f"False Positive\n(FP)\n{fp}", f"Positive\n Predictive\n Value\n{PPV:.2f}"],
+        [f"False Negative\n(FN)\n{fn}", f"True Negative\n(TN)\n{tn}", f"Negative\n Predictive\n Value\n{NPV:.2f}"],
         [f"Sensitivity\n{sensitivity:.2f}", f"Specificity\n{specificity:.2f}", ""]
     ]
     
