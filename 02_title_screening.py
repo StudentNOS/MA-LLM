@@ -21,7 +21,9 @@ def generate_prompt(search_term, titles):
     """
     prompt = f"Search Term: {search_term}\n\nList of titles:\n"
     prompt += "\n".join(f"{i}. {title}" for i, title in enumerate(titles, 1))
-    prompt += "\n\nWhich of these titles are relevant to the search term?" #Prompt Engineering Hier
+
+    #Prompt Engineering Hier
+    prompt += "\n\nWhich of these titles are relevant to the search term?"
     return prompt
 
 # Function to screen titles using the OpenAI API
