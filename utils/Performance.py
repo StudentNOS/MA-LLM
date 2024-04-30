@@ -76,7 +76,7 @@ def main():
     sensitivity, specificity, PPV, NPV, tp, tn, fp, fn = calculate_performance_metrics(
         initial_ids, gpt_selected_ids, goldstandard_selected_ids)
     
-    create_performance_table(tp, tn, fp, fn, sensitivity, specificity, PPV, NPV, "C:/Users/tillj/Desktop/ENSURE/performance_table.png")
+    create_performance_table(tp, tn, fp, fn, sensitivity, specificity, PPV, NPV, "performance_table.png")
     
     print(f"Sensitivity: {sensitivity:.4f}")
     print(f"Specificity: {specificity:.4f}")
