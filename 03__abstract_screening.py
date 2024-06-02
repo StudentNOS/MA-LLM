@@ -54,7 +54,7 @@ def match_abstracts_to_ids(initials, abstracts_with_ids):
     matched_ids = []
     for initial in initials:
         for pmid, abstract in abstracts_with_ids:
-            if fuzz.partial_ratio(abstract[:10], initial) > 80:
+            if fuzz.partial_ratio(abstract[:10], initial) > 90:
                 matched_ids.append(pmid)
                 break
     return matched_ids
