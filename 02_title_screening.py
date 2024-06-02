@@ -48,7 +48,7 @@ def screen_titles_with_openai(prompt):
 
 # Funktion, um zu prüfen, ob ein Titel relevant ist
 def is_relevant(title, response_initials):
-    return any(fuzz.partial_ratio(title, initial) > 80 for initial in response_initials)
+    return any(fuzz.partial_ratio(title, initial) > 90 for initial in response_initials)
 
 # Funktion, um PubMed-IDs für die relevanten Titel zu bekommen
 def get_pubmed_ids_for_titles(screened_titles):
