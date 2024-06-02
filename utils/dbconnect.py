@@ -6,110 +6,101 @@ ENSURE="ensure.sqlite"
 def init_db(db=ENSURE):
     with sqlite3.connect(db) as conn:
         cursor = conn.cursor()
+        
+        # Drop existing tables if they exist
+        cursor.execute("DROP TABLE IF EXISTS Initial;")
+        cursor.execute("DROP TABLE IF EXISTS titles;")
+        cursor.execute("DROP TABLE IF EXISTS abstracts;")
+        cursor.execute("DROP TABLE IF EXISTS full_texts;")
+        
+        # Create the Initial table
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS meta_analysis (
+            CREATE TABLE Initial (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 pmid TEXT,
                 title TEXT,
                 abstract TEXT,
-                fulltext_pdf TEXT,
-                short_summary TEXT,
-                search_terms TEXT,
-                inclusion_criteria TEXT,
-                exclusion_criteria TEXT,
-                n_studies_query INTEGER,
-                n_studies_included INTEGER,
-                patients TEXT,
-                interventions TEXT,
-                controls TEXT,
-                study_designs TEXT
+                fulltext_pdf TEXT DEFAULT '',
+                short_summary TEXT DEFAULT '',
+                search_terms TEXT DEFAULT '',
+                inclusion_criteria TEXT DEFAULT '',
+                exclusion_criteria TEXT DEFAULT '',
+                n_studies_query INTEGER DEFAULT 0,
+                n_studies_included INTEGER DEFAULT 0,
+                patients TEXT DEFAULT '',
+                interventions TEXT DEFAULT '',
+                controls TEXT DEFAULT '',
+                study_designs TEXT DEFAULT ''
             );
         """)
+
+        # Create the titles table
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS study (
+            CREATE TABLE titles (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 pmid TEXT,
-                meta_analysis_id INTEGER FOREIGNKEY REFERENCES meta_analysis(id),
                 title TEXT,
                 abstract TEXT,
-                fulltext_pdf TEXT,
-                total_patients INTEGER,
-                int_n_patients INTEGER,
-                int_age_central_tendency REAL,
-                int_age_central_tendency_type TEXT,
-                int_age_dispersion REAL,
-                int_age_dispersion_type TEXT,
-                int_perc_male REAL,
-                int_outcome_metric REAL,
-                con_n_patients INTEGER,
-                con_age_central_tendency REAL,
-                con_age_central_tendency_type TEXT,
-                con_age_dispersion REAL,
-                con_age_dispersion_type TEXT,
-                con_perc_male REAL,
-                con_outcome_metric REAL,
-                rob2_overall INTEGER,
-                rob2_random_sequence INTEGER,
-                rob2_deviation INTEGER,
-                rob2_missing_outcome INTEGER,
-                rob2_measure_out INTEGER,
-                rob2_selection INTEGER,
-                grade_overall INTEGER
-        );
-    """)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS llm_study_extraction (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                study_id INTEGER FOREIGNKEY REFERENCES study(id),
-                total_patients INTEGER,
-                int_n_patients INTEGER,
-                int_age_central_tendency REAL,
-                int_age_central_tendency_type TEXT,
-                int_age_dispersion REAL,
-                int_age_dispersion_type TEXT,
-                int_perc_male REAL,
-                int_outcome_metric REAL,
-                con_n_patients INTEGER,
-                con_age_central_tendency REAL,
-                con_age_central_tendency_type TEXT,
-                con_age_dispersion REAL,
-                con_age_dispersion_type TEXT,
-                con_perc_male REAL,
-                con_outcome_metric REAL,
-                rob2_overall INTEGER,
-                rob2_random_sequence INTEGER,
-                rob2_deviation INTEGER,
-                rob2_missing_outcome INTEGER,
-                rob2_measure_out INTEGER,
-                rob2_selection INTEGER,
-                grade_overall INTEGER
-        );
-    """)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS llm_ma_generation (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                meta_analysis_id INTEGER FOREIGNKEY REFERENCES meta_analysis(id),
-                title text,
-                fulltext_pdf TEXT,
-                abstract TEXT,
-                table_1 TEXT
-        );
-    """)
-        # New commands to add selection columns
-    try:
-        cursor.execute("""
-            ALTER TABLE meta_analysis ADD COLUMN selected_title BOOLEAN DEFAULT FALSE;
+                fulltext_pdf TEXT DEFAULT '',
+                short_summary TEXT DEFAULT '',
+                search_terms TEXT DEFAULT '',
+                inclusion_criteria TEXT DEFAULT '',
+                exclusion_criteria TEXT DEFAULT '',
+                n_studies_query INTEGER DEFAULT 0,
+                n_studies_included INTEGER DEFAULT 0,
+                patients TEXT DEFAULT '',
+                interventions TEXT DEFAULT '',
+                controls TEXT DEFAULT '',
+                study_designs TEXT DEFAULT ''
+            );
         """)
-    except sqlite3.OperationalError:
-        pass  # Ignore error if column already exists
 
-    try:
+        # Create the abstracts table
         cursor.execute("""
-            ALTER TABLE meta_analysis ADD COLUMN selected_abstract BOOLEAN DEFAULT FALSE;
+            CREATE TABLE abstracts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                pmid TEXT,
+                title TEXT,
+                abstract TEXT,
+                fulltext_pdf TEXT DEFAULT '',
+                short_summary TEXT DEFAULT '',
+                search_terms TEXT DEFAULT '',
+                inclusion_criteria TEXT DEFAULT '',
+                exclusion_criteria TEXT DEFAULT '',
+                n_studies_query INTEGER DEFAULT 0,
+                n_studies_included INTEGER DEFAULT 0,
+                patients TEXT DEFAULT '',
+                interventions TEXT DEFAULT '',
+                controls TEXT DEFAULT '',
+                study_designs TEXT DEFAULT ''
+            );
         """)
-    except sqlite3.OperationalError:
-        pass  # Ignore error if column already exists
+
+        # Create the full_texts table
+        cursor.execute("""
+            CREATE TABLE full_texts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                pmid TEXT,
+                title TEXT,
+                abstract TEXT,
+                fulltext_pdf TEXT DEFAULT '',
+                short_summary TEXT DEFAULT '',
+                search_terms TEXT DEFAULT '',
+                inclusion_criteria TEXT DEFAULT '',
+                exclusion_criteria TEXT DEFAULT '',
+                n_studies_query INTEGER DEFAULT 0,
+                n_studies_included INTEGER DEFAULT 0,
+                patients TEXT DEFAULT '',
+                interventions TEXT DEFAULT '',
+                controls TEXT DEFAULT '',
+                study_designs TEXT DEFAULT ''
+            );
+        """)
+
+        # Ensure the tables are created
         conn.commit()
+
+
 
 def execute_query(query, db=ENSURE, params=None):
     """
@@ -156,31 +147,43 @@ def insert(table, key_dict, db=ENSURE, serialize_json=False):
         
 
 def insert2(table, data, db=ENSURE):
+    """
+    Alternative insert function using different syntax.
+    """
     keys = ", ".join(data.keys())
     values = ", ".join(f"'{value}'" for value in data.values())
     query = f"INSERT INTO {table} ({keys}) VALUES ({values})"
-    exec(query, db)
+    execute_query(query, db)
 
 def select(table, columns, where=None, db=ENSURE):
+    """
+    Selects data from a specified table with optional where clause.
+    """
     columns = ", ".join(columns)
     query = f"SELECT {columns} FROM {table}"
     if where:
         query += f" WHERE {where}"
-    return exec(query, db)
+    return execute_query(query, db)
 
 def create(db=ENSURE):
+    """
+    Drops existing tables and recreates the database.
+    """
     input("WARNING: This will delete the existing database and create a new one. Press enter to continue.")
     query = """
-        DROP TABLE IF EXISTS meta_analysis; 
-        DROP TABLE IF EXISTS study; 
-        DROP TABLE IF EXISTS llm_study_extraction; 
-        DROP TABLE IF EXISTS llm_ma_generation;
+        DROP TABLE IF EXISTS Initial; 
+        DROP TABLE IF EXISTS titles; 
+        DROP TABLE IF EXISTS abstracts; 
+        DROP TABLE IF EXISTS full_texts;
     """
-    exec(query, db)
+    execute_query(query, db)
     init_db(db)
 
 # Main function to initialize the database
 def main():
+    """
+    Main function to initialize the database.
+    """
     db_name = ENSURE
     init_db(db_name)
     print("Database initialized with the necessary tables.")
