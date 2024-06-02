@@ -3,93 +3,87 @@ from openai import OpenAI
 
 client = OpenAI(api_key='upon request')
 
-# Generator function to fetch titles in batches from the database
 def get_titles_in_batches(batch_size=100):
-    offset = 0  
+    offset = 0
     while True:
-        query = f"SELECT title FROM meta_analysis LIMIT {batch_size} OFFSET {offset}" 
-        titles = execute_query(query, ENSURE)  
+        query = f"SELECT title FROM Initial LIMIT {batch_size} OFFSET {offset}"
+        titles = execute_query(query, ENSURE)
         if not titles:
-            break  
+            break
         yield [title[0] for title in titles]
-        offset += batch_size  
+        offset += batch_size
 
-# Function to create a prompt for OpenAI based on a given search term and list of titles
 def generate_prompt(search_term, titles):
-    """
-    Constructs a detailed prompt for the OpenAI API call.
-    """
     prompt = f"Search Term: {search_term}\n\nList of titles:\n"
     prompt += "\n".join(f"{i}. {title}" for i, title in enumerate(titles, 1))
-
-    #Prompt Engineering Hier
     prompt += "\n\nWhich of these titles are relevant to the search term?"
+    
+    
+    #Formatting
+    prompt += "\n\nFormat the output as a comma-separated string with each entry enclosed in single quotes. "
+    prompt += "Each entry should be the first 10 characters of each relevant title. "
+    prompt += "For example: 'Example AB', 'Example CD', 'Example EF'."
     return prompt
 
-# Function to screen titles using the OpenAI API
 def screen_titles_with_openai(prompt):
-    """
-    Sends the constructed prompt to the OpenAI API and returns the response.
-    """
     try:
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",  
+            model="gpt-3.5-turbo",
             messages=[{"role": "system", "content": prompt}],
-            max_tokens=2048  
+            max_tokens=2048
         )
-        return response.choices[0].message.content.strip()  
+        response_text = response.choices[0].message.content.strip()
+        # Extract the relevant parts from the formatted response
+        split_results = [item.strip("'") for item in response_text.split("', '")]
+        return split_results
     except Exception as e:
         print(f"Error in OpenAI API call: {e}")
-        return ""
+        return []
 
-# Function to retrieve PubMed IDs for screened titles
+def is_relevant(title, response_initials):
+    return any(fuzz.partial_ratio(title, initial) > 80 for initial in response_initials)
+
 def get_pubmed_ids_for_titles(screened_titles):
-    """
-    Fetches PubMed IDs for the titles that were identified as relevant by the GPT.
-    """
     pmids = []
     for title in screened_titles:
-        query = "SELECT pmid FROM meta_analysis WHERE title = ?"  
+        query = "SELECT pmid FROM Initial WHERE title = ?"
         result = execute_query(query, ENSURE, params=(title,))
         if result:
             pmids.extend([res[0] for res in result])
     return pmids
 
-# Function to save PubMed IDs to a file
 def save_pmids_to_file(pmids, file_path):
-    """
-    Saves the list of PubMed IDs to a text file at the specified path.
-    """
     with open(file_path, 'w') as file:
         for pmid in pmids:
-            file.write(f"{pmid}\n")  
+            file.write(f"{pmid}\n")
 
-# Function to mark titles as selected in the database
-def mark_title_selections(pmids, selected=True):
-    """
-    Updates the database to mark the selected titles, indicating they have passed the screening process.
-    """
-    placeholders = ', '.join('?' * len(pmids))  
-    query = f"UPDATE meta_analysis SET selected_title = ? WHERE pmid IN ({placeholders})"  
-    execute_query(query, params=[selected] + pmids)  
+def move_titles_to_titles_table(pmids):
+    placeholders = ', '.join('?' * len(pmids))
+    select_query = f"SELECT * FROM Initial WHERE pmid IN ({placeholders})"
+    selected_rows = execute_query(select_query, ENSURE, params=pmids)
+    
+    for row in selected_rows:
+        columns = ["pmid", "title", "abstract", "fulltext_pdf", "short_summary", "search_terms", "inclusion_criteria", "exclusion_criteria", "n_studies_query", "n_studies_included", "patients", "interventions", "controls", "study_designs"]
+        data = dict(zip(columns, row[1:]))
+        insert("titles", data, ENSURE)
 
-# Main function for GPT screening
+    delete_query = f"DELETE FROM Initial WHERE pmid IN ({placeholders})"
+    execute_query(delete_query, ENSURE, params=pmids)
+
 def main():
-    search_term = input("Enter search term: ")  # Prompt user to enter a search term
-    all_screened_titles = []  # List to hold all titles that pass the screening
+    search_term = input("Enter search term: ")
+    all_screened_titles = []
 
-    for titles_batch in get_titles_in_batches():  # Process each batch of titles
-        prompt = generate_prompt(search_term, titles_batch)  # Generate the prompt for the current batch
-        screened_title_responses = screen_titles_with_openai(prompt)  # Screen the titles
-        screened_titles = [title for title in titles_batch if title in screened_title_responses]  # Filter relevant titles
-        all_screened_titles.extend(screened_titles)  # Add relevant titles to the list
+    for titles_batch in get_titles_in_batches():
+        prompt = generate_prompt(search_term, titles_batch)
+        screened_title_initials = screen_titles_with_openai(prompt)
+        screened_titles = [title for title in titles_batch if is_relevant(title, screened_title_initials)]
+        all_screened_titles.extend(screened_titles)
 
-    pmids = get_pubmed_ids_for_titles(all_screened_titles)  # Fetch PubMed IDs for all screened titles
-    mark_title_selections(pmids, selected=True)  # Mark the titles as selected in the database
+    pmids = get_pubmed_ids_for_titles(all_screened_titles)
+    move_titles_to_titles_table(pmids)
 
-    save_pmids_to_file(pmids, "GPT_Selected.txt")  # Save the PubMed IDs to a file
-
-    # Print only the essential output
+    save_pmids_to_file(pmids, "GPT_Selected.txt")
     print("PubMed IDs saved to GPT_Selected.txt")
     print(f"{len(pmids)} papers have been marked as selected based on title screening.")
 
