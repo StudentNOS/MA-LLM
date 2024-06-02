@@ -8,7 +8,7 @@ def delete_all_data(db_path):
     with sqlite3.connect(db_path) as conn:
         cursor = conn.cursor()
         # List all tables you want to clear
-        tables_to_clear = ['meta_analysis', 'study', 'llm_study_extraction', 'llm_ma_generation']
+        tables_to_clear = ['Initial', 'titles', 'abstracts', 'full_texts']
         for table in tables_to_clear:
             cursor.execute(f"DELETE FROM {table}")
         print("All tables have been cleared.")
