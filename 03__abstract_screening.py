@@ -4,47 +4,37 @@ from openai import OpenAI
 # Initialize the OpenAI client with a specified API key
 client = OpenAI(api_key='upon request')
 
-# Generator function to fetch abstracts and PubMed IDs in batches from the database
+# Funktion, um Abstracts in Chargen (Batches) zu holen
 def get_abstracts_in_batches(batch_size=20):
-    """
-    Fetches batches of abstracts and their corresponding PubMed IDs from the database,
-    specifically those that were selected in the previous title screening phase.
-    This uses pagination to manage memory and API token limitations.
-    """
     offset = 0
     while True:
-        # SQL query to fetch a specific batch of abstracts based on the offset
-        query = f"SELECT pmid, abstract FROM meta_analysis WHERE selected_title = TRUE LIMIT {batch_size} OFFSET {offset}"
+        # SQL-Abfrage, um eine bestimmte Anzahl von Abstracts zu holen
+        query = f"SELECT pmid, abstract FROM titles LIMIT {batch_size} OFFSET {offset}"
         results = execute_query(query, ENSURE)
         if not results:
-            break  # Break the loop if no more results are available
+            break
+        # Liefert eine Liste von Abstracts zurück
         yield [(result[0], result[1]) for result in results if result[1]]
-        offset += batch_size  # Increase the offset to fetch the next batch
+        offset += batch_size
 
-# Function to generate a prompt for OpenAI based on a search term and a list of abstracts
+# Funktion, um ein Prompt für OpenAI zu erstellen
 def generate_prompt(search_term, abstracts):
-    """
-    Constructs a prompt string for OpenAI API calls, formatted to handle abstracts. 
-    It also includes instructions on how the API should format its output.
-    """
     prompt = f"Search Term: {search_term}\n\nList of abstracts:\n"
     prompt += "\n".join(abstract for _, abstract in abstracts)
-
-    #Prompt Engineering Hier
-    prompt += "\n\nIdentify which of these abstracts are relevant to the search term."
-
-    #NICHT verändern
+    
+    # PROMPT ENGINEERING
+    prompt += "\nThese abstracts will be screened to write a meta-analysis."
+    prompt += "\nWhich of these abstracts would you select based on the search term?"
+    prompt += "\nBe broad in your selection."
+    
+    # Formatierung für GPT (NICHT ÄNDERN)
     prompt += "\n\nFormat the output as a comma-separated string with each entry enclosed in single quotes. "
     prompt += "Each entry should be the first 10 characters of each relevant abstract. "
     prompt += "For example: 'Example AB', 'Example CD', 'Example EF'."
     return prompt
 
-# Function to screen abstracts using the OpenAI API
+# Funktion, um die Abstracts mit OpenAI zu prüfen
 def screen_abstracts_with_openai(prompt):
-    """
-    Calls the OpenAI API with a specific prompt and extracts the relevant part of the API's response,
-    focusing on abstracts that match the search criteria.
-    """
     try:
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
@@ -52,32 +42,25 @@ def screen_abstracts_with_openai(prompt):
             max_tokens=2048
         )
         response_text = response.choices[0].message.content.strip()
+        # Extrahieren der relevanten Teile aus der Antwort
         split_results = [item.strip("'") for item in response_text.split("', '")]
         return split_results
     except Exception as e:
         print(f"Error in OpenAI API call: {e}")
         return []
 
-# Function to match the first 10 characters of abstracts to their corresponding PubMed IDs
+# Funktion, um Abstracts mit ihren IDs zu verknüpfen
 def match_abstracts_to_ids(initials, abstracts_with_ids):
-    """
-    Matches the extracted initials from the OpenAI API response to their corresponding PubMed IDs,
-    facilitating accurate tracking and selection of relevant studies.
-    """
     matched_ids = []
     for initial in initials:
         for pmid, abstract in abstracts_with_ids:
-            if abstract.startswith(initial):
+            if fuzz.partial_ratio(abstract[:10], initial) > 80:
                 matched_ids.append(pmid)
                 break
     return matched_ids
 
-# Function to save PubMed IDs to a text file
+# Funktion, um die PubMed-IDs in eine Datei zu speichern
 def save_pmids_to_file(pmids, file_path):
-    """
-    Writes the list of PubMed IDs to a specified file, providing a permanent record
-    of abstracts selected as relevant.
-    """
     try:
         with open(file_path, 'w') as file:
             for pmid in pmids:
@@ -86,26 +69,28 @@ def save_pmids_to_file(pmids, file_path):
     except Exception as e:
         print(f"Failed to save PMIDs to file: {e}")
 
-# Function to mark abstracts as selected in the database
-def mark_abstract_selections(pmids, selected=True):
-    """
-    Updates the database to mark the selected abstracts, indicating they have been accepted
-    based on their relevance to the search term.
-    """
+# Funktion, um Abstracts von einer Tabelle in eine andere zu verschieben
+def move_abstracts_to_abstracts_table(pmids):
     placeholders = ', '.join('?' * len(pmids))
-    query = f"UPDATE meta_analysis SET selected_abstract = ? WHERE pmid IN ({placeholders})"
-    execute_query(query, params=[selected] + pmids)
+    select_query = f"SELECT * FROM titles WHERE pmid IN ({placeholders})"
+    selected_rows = execute_query(select_query, ENSURE, params=pmids)
+    
+    for row in selected_rows:
+        # Spalten der Datenbank und deren Werte
+        columns = ["pmid", "title", "abstract", "fulltext_pdf", "short_summary", "search_terms", "inclusion_criteria", "exclusion_criteria", "n_studies_query", "n_studies_included", "patients", "interventions", "controls", "study_designs"]
+        data = dict(zip(columns, row[1:]))
+        insert("abstracts", data, ENSURE)
 
-# Main function to orchestrate the abstract screening process
+    delete_query = f"DELETE FROM titles WHERE pmid IN ({placeholders})"
+    execute_query(delete_query, ENSURE, params=pmids)
+
+# Hauptfunktion, die den gesamten Ablauf steuert
 def main():
-    """
-    Main function to handle user input, batch processing of abstracts,
-    and saving of results. This is where the entire screening process is controlled.
-    """
     search_term = input("Enter search term: ")
     all_screened_abstracts = []
     all_matched_pmids = []
 
+    # Iterieren über alle Abstracts in Chargen
     for abstracts_batch in get_abstracts_in_batches():
         prompt = generate_prompt(search_term, abstracts_batch)
         screened_abstract_initials = screen_abstracts_with_openai(prompt)
@@ -113,9 +98,12 @@ def main():
         all_matched_pmids.extend(matched_pmids)
         all_screened_abstracts.extend(screened_abstract_initials)
 
-    mark_abstract_selections(all_matched_pmids, selected=True)
-    save_pmids_to_file(all_matched_pmids, "GPT_Selected.txt")
+    # Relevante Abstracts in eine andere Tabelle verschieben
+    move_abstracts_to_abstracts_table(all_matched_pmids)
+    # PubMed-IDs in eine Datei speichern
+    save_pmids_to_file(all_matched_pmids, "C:/Users/tillj/Desktop/ENSURE/GPT_Selected.txt")
     print("PubMed IDs saved to GPT_Selected.txt")
 
+# Ausführung der Hauptfunktion
 if __name__ == "__main__":
     main()
