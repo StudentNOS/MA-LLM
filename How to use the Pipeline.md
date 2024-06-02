@@ -107,7 +107,8 @@
     
     → Note: Diese Performance könnt ihr euch an jedem Schritt des Screenings geben lassen — also nach Title und Abstract jeweils
     
-    ![Untitled](How%20to%20use%20the%20Pipeline%2000252f9536f24e94a4d7f2fdd7d4e868/Untitled.png)
+    ![Capture](https://github.com/BerlinExchangeMedicine/ensure/assets/133876003/c3bfb854-6de6-4fbd-baff-5acacb608ad8)
+
     
 2. **“utils”-Ordner: Screening Progression**
     
