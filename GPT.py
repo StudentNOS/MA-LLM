@@ -11,7 +11,7 @@ from openai import OpenAI
 from fuzzywuzzy import fuzz
 from PATHS import api_key
 
-client = OpenAI(api_key)
+client = OpenAI(api_key=api_key)
 #%% Fetching
 def get_data_in_batches(decision, batch_size=None):
     offset = 0
