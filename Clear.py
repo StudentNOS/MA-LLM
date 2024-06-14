@@ -1,7 +1,5 @@
 import sqlite3
-from Bio import Entrez
-from dbconnect import insert, execute_query, ENSURE  # Importing from your dbconnect script
-import pandas as pd  # Import pandas for data manipulation
+from dbconnect import ENSURE  # Importing from your dbconnect script
 
 
 def delete_all_data(db_path):

@@ -1,10 +1,11 @@
 import sqlite3
 from Bio import Entrez
-from dbconnect import insert, execute_query, ENSURE  # Importing from your dbconnect script
+from dbconnect import execute_query, ENSURE  # Importing from your dbconnect script
 import pandas as pd  # Import pandas for data manipulation
+from PATHS import email
 
 # Replace 'your_email' with your actual email address
-Entrez.email = "Mail"
+Entrez.email = email
 
 def count_papers():
     """
@@ -33,25 +34,3 @@ def fetch_details(pmids):
     records = Entrez.read(handle)
     handle.close()
     return records
-
-def main():
-    pmids = read_pmids_from_file("Initial.txt")
-    records = fetch_details(pmids)
-    
-    for article in records["PubmedArticle"]:
-        pmid = article["MedlineCitation"]["PMID"]
-        title = article["MedlineCitation"]["Article"].get("ArticleTitle", "")
-        abstract_text = ""
-        if "Abstract" in article["MedlineCitation"]["Article"]:
-            abstract_text = " ".join([str(abstract) for abstract in article["MedlineCitation"]["Article"]["Abstract"]["AbstractText"]])
-        
-        insert("Initial", {"pmid": pmid, "title": title, "abstract": abstract_text}, ENSURE, False)
-        print(f"Inserted: {pmid}")
-    
-    paper_count = count_papers()
-    print(f"Total number of papers in the database: {paper_count}")
-    
-    create_excel_from_db()
-
-if __name__ == "__main__":
-    main()

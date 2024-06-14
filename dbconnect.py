@@ -1,7 +1,7 @@
+from PATHS import ENSURE
+
 import sqlite3
 import json
-
-ENSURE="ensure.sqlite"
 
 def init_db(db=ENSURE):
     with sqlite3.connect(db) as conn:
@@ -103,25 +103,15 @@ def init_db(db=ENSURE):
 
 
 def execute_query(query, db=ENSURE, params=None):
-    """
-    Executes a given SQL query with optional parameters and returns the fetched results.
-    """
-    try:
-        with sqlite3.connect(db) as conn:
-            cursor = conn.cursor()
-            if params:
-                cursor.execute(query, params)
-            else:
-                # Splitting and executing each statement if multiple statements are passed without params
-                for statement in query.split(";"):
-                    statement = statement.strip()
-                    if statement:
-                        cursor.execute(statement)
-            conn.commit()
-            return cursor.fetchall()
-    except sqlite3.Error as e:
-        print(f"An error occurred: {e}")
-        return []
+    with sqlite3.connect(db) as conn:
+        cursor = conn.cursor()
+        if params:
+            cursor.execute(query, params)
+        else:
+            cursor.execute(query)
+        conn.commit()
+        return cursor.fetchall()
+
     
 def insert(table, key_dict, db=ENSURE, serialize_json=False):
     """
@@ -179,14 +169,12 @@ def create(db=ENSURE):
     execute_query(query, db)
     init_db(db)
 
-# Main function to initialize the database
-def main():
-    """
-    Main function to initialize the database.
-    """
-    db_name = ENSURE
-    init_db(db_name)
-    print("Database initialized with the necessary tables.")
-
-if __name__ == "__main__":
-    main()
+def delete_all_data(db_name):
+    with sqlite3.connect(db_name) as conn:
+        cursor = conn.cursor()
+        # List all tables you want to clear
+        tables_to_clear = ['Initial', 'titles', 'abstracts', 'full_texts']
+        for table in tables_to_clear:
+            cursor.execute(f"DELETE FROM {table}")
+        print("All tables have been cleared.")
+        conn.commit()
