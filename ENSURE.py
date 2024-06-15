@@ -149,6 +149,8 @@ def main():
         # Draw plot chart
         draw_plot_chart(data)
 
+        print("Plots and overview table have been saved to folder. Either open in folder or click 'Plots' in the console to view them.")
+
     delete_all_data(db_name)
 
 if __name__ == "__main__":
