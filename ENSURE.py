@@ -9,7 +9,7 @@ from PATHS import ENSURE
 from dbconnect import init_db, insert, delete_all_data
 from PubMed import count_papers, create_excel_from_db, read_pmids_from_file, fetch_details 
 from GPT import get_data_in_batches, generate_prompt, screen_with_openai, match_data_to_ids, save_pmids_to_file, move_records
-from Performance import read_ids_from_file, calculate_performance_metrics
+from Performance import read_ids_from_file, calculate_performance_metrics, create_performance_table, fetch_data_for_report_and_chart, create_excel_report, draw_plot_chart
 
 db_name = ENSURE
 init_db(db_name)
@@ -65,7 +65,7 @@ def main():
         move_records(all_matched_pmids_titles, "titles")
 
         # Save PubMed IDs for titles to a file
-        output_file_titles = "GPT_Selected_Titles.txt"
+        output_file_titles = "C:/Users/tillj/Desktop/ENSURE/GPT_Selected_Titles.txt"
         print(f"Saving PubMed IDs for titles to {output_file_titles}...")
         save_pmids_to_file(all_matched_pmids_titles, output_file_titles)
         
@@ -75,7 +75,7 @@ def main():
         # Step 5: Calculate performance metrics for titles
         initial_ids = read_ids_from_file(pmid_file)
         gpt_selected_ids = read_ids_from_file(output_file_titles)
-        goldstandard_selected_ids = read_ids_from_file("Goldstandard_Selected.txt")  # Assuming the gold standard file is located here
+        goldstandard_selected_ids = read_ids_from_file("C:/Users/tillj/Desktop/ENSURE/Goldstandard_Selected.txt")  # Assuming the gold standard file is located here
         sensitivity, specificity, PPV, NPV, tp, tn, fp, fn = calculate_performance_metrics(
             initial_ids, gpt_selected_ids, goldstandard_selected_ids)
         print("Performance metrics for titles:")
@@ -111,7 +111,7 @@ def main():
         move_records(all_matched_pmids_abstracts, "abstracts")
 
         # Save PubMed IDs for abstracts to a file
-        output_file_abstracts = "GPT_Selected_Abstracts.txt"
+        output_file_abstracts = "C:/Users/tillj/Desktop/ENSURE/GPT_Selected_Abstracts.txt"
         print(f"Saving PubMed IDs for abstracts to {output_file_abstracts}...")
         save_pmids_to_file(all_matched_pmids_abstracts, output_file_abstracts)
         
@@ -121,7 +121,7 @@ def main():
         # Step 7: Calculate performance metrics for abstracts
         initial_ids = read_ids_from_file(pmid_file)
         gpt_selected_ids = read_ids_from_file(output_file_abstracts)
-        goldstandard_selected_ids = read_ids_from_file("Goldstandard_Selected.txt")  # Assuming the gold standard file is located here
+        goldstandard_selected_ids = read_ids_from_file("C:/Users/tillj/Desktop/ENSURE/Goldstandard_Selected.txt")  # Assuming the gold standard file is located here
         sensitivity, specificity, PPV, NPV, tp, tn, fp, fn = calculate_performance_metrics(
             initial_ids, gpt_selected_ids, goldstandard_selected_ids)
         print("Performance metrics for abstracts:")
@@ -133,6 +133,21 @@ def main():
         print(f"True Negatives: {tn}")
         print(f"False Positives: {fp}")
         print(f"False Negatives: {fn}")
+
+    # Step 8: Ask user if they want to create a visual overview of screening
+    create_visual_overview = input("Would you like to create a visual overview for your Screening? (y/n)").strip().lower() == 'y'
+    if create_visual_overview:
+        # Create performance table
+        create_performance_table(tp, tn, fp, fn, sensitivity, specificity, PPV, NPV, "performance_table.png")
+        
+        # Fetch data for report and chart
+        data = fetch_data_for_report_and_chart()
+        
+        # Create Excel report
+        create_excel_report(data)
+        
+        # Draw plot chart
+        draw_plot_chart(data)
 
     delete_all_data(db_name)
 
