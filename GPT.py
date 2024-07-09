@@ -1,6 +1,6 @@
-# -*- coding: utf-8 -*-
 # :)
-# <3
+# :)
+# -*- coding: utf-8 -*-
 """
 Created on Sun Jun  9 16:43:00 2024
 
