@@ -1,7 +1,10 @@
-from PATHS import ENSURE
-
+import os
 import sqlite3
 import json
+
+# Dynamically determine the script's directory
+script_dir = os.path.dirname(os.path.abspath(__file__))
+ENSURE = os.path.join(script_dir, 'ensure.sqlite')
 
 def init_db(db=ENSURE):
     with sqlite3.connect(db) as conn:
@@ -100,7 +103,8 @@ def init_db(db=ENSURE):
         # Ensure the tables are created
         conn.commit()
 
-
+init_db(ENSURE)
+print("Database initialized with the necessary tables.")
 
 def execute_query(query, db=ENSURE, params=None):
     with sqlite3.connect(db) as conn:
