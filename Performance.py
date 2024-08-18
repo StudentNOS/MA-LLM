@@ -1,7 +1,7 @@
 import sqlite3
 import pandas as pd
 import matplotlib.pyplot as plt
-from PATHS import ENSURE
+from dbconnect import ENSURE
 
 def read_ids_from_file(file_path):
     with open(file_path, 'r') as file:
@@ -9,6 +9,7 @@ def read_ids_from_file(file_path):
     return ids
 
 def calculate_performance_metrics(initial, gpt_selected, goldstandard_selected):
+        # where we quanity just how hopefully not terribly all this works
     initial_set = set(initial)
     gs_selected_set = set(goldstandard_selected)
     gpt_selected_set = set(gpt_selected)
