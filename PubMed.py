@@ -1,7 +1,7 @@
 import sqlite3
 from Bio import Entrez
-from dbconnect import execute_query, ENSURE  # Importing from your dbconnect script
-import pandas as pd  # Import pandas for data manipulation
+from dbconnect import execute_query, ENSURE
+import pandas as pd
 from PATHS import email
 
 # Replace 'your_email' with your actual email address
