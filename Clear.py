@@ -1,5 +1,5 @@
 import sqlite3
-from dbconnect import ENSURE  # Importing from your dbconnect script
+from dbconnect import ENSURE
 
 
 def delete_all_data(db_path):
@@ -13,8 +13,7 @@ def delete_all_data(db_path):
         conn.commit()
 
 def main():
-    db_path = ENSURE  # Ensure this is your database path
-    delete_all_data(db_path)
+    delete_all_data(ENSURE)
 
 if __name__ == "__main__":
     main()
