@@ -40,11 +40,18 @@ def main():
     # Step 3: Generate Excel report from the database
     print("Generating Excel report from the database...")
     create_excel_from_db() # For those who love spreadsheets
-
+    
+    # Step 4: Prompt user once for search term, inclusion and exclusion criteria
+    search_term = input("Enter the search terms of the original meta-analysis (you can simply copy-paste search terms of the data base search): ").strip()
+    inclusion = input("Inclusion Criteria (copy-paste inclusion criteria): ").strip()
+    exclusion = input("Exclusion Criteria (copy-paste exclusion criteria): ").strip()
+    
     # Step 4: Ask user if they want to screen titles
     screen_titles = input("Do you want to screen the titles (y/n)? ").strip().lower() == 'y'
     if screen_titles:
-        search_term = input("Enter search terms (you can simply copy-paste search terms of the data base search) for titles: ").strip()
+        search_term = search_term
+        inclusion = inclusion
+        exclusion = exclusion
         manual = input("Prompt: ").strip() # because computers can't read minds (yet...)
         all_screened_titles = []
         all_matched_pmids_titles = []
@@ -52,7 +59,7 @@ def main():
         # Process titles
         print("Processing titles...")
         for titles_batch in get_data_in_batches("titles"):
-            prompt = generate_prompt(search_term, titles_batch, "titles", manual)
+            prompt = generate_prompt(search_term, inclusion, exclusion, titles_batch, "titles", manual)
             screened_title_initials = screen_with_openai(prompt)
             matched_pmids_titles = match_data_to_ids(screened_title_initials, titles_batch, "titles")
             
@@ -90,7 +97,9 @@ def main():
     # Step 6: Ask user if they want to screen abstracts
     screen_abstracts = input("Do you want to screen the abstracts (y/n)? ").strip().lower() == 'y'
     if screen_abstracts:
-        search_term = input("Enter search terms (you can simply copy-paste search terms of the data base search) for abstracts: ").strip()
+        search_term = search_term
+        inclusion = inclusion
+        exclusion = exclusion
         manual = input("Prompt: ").strip()
         all_screened_abstracts = []
         all_matched_pmids_abstracts = []
@@ -98,7 +107,7 @@ def main():
         # Process abstracts
         print("Processing abstracts...")
         for abstracts_batch in get_data_in_batches("abstracts"):
-            prompt = generate_prompt(search_term, abstracts_batch, "abstracts", manual)
+            prompt = generate_prompt(search_term, inclusion, exclusion, abstracts_batch, "abstracts", manual)
             screened_abstract_initials = screen_with_openai(prompt)
             matched_pmids_abstracts = match_data_to_ids(screened_abstract_initials, abstracts_batch, "abstracts")
             
@@ -164,9 +173,9 @@ def main():
     proceed_fulltext_screening = input("Have you completed these steps and would like to proceed to the screening? (y/n)").strip().lower() == 'y'
     
     if proceed_fulltext_screening:
-        search_term = input("Enter search terms (you can simply copy-paste search terms of the data base search): ").strip()
-        inclusion = input("Inclusion Criteria (copy-paste inclusion criteria): ").strip()
-        exclusion = input("Exclusion Criteria (copy-paste exclusion criteria): ").strip()
+        search_term = search_term
+        inclusion = inclusion
+        exclusion = exclusion
         manual_fulltext = input("Prompt: ").strip()
         relevant_pmids = []
     
