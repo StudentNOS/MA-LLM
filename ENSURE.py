@@ -41,10 +41,19 @@ def main():
     print("Generating Excel report from the database...")
     create_excel_from_db() # For those who love spreadsheets
     
-    # Step 4: Prompt user once for search term, inclusion and exclusion criteria
-    search_term = input("Enter the search terms of the original meta-analysis (you can simply copy-paste search terms of the data base search): ").strip()
-    inclusion = input("Inclusion Criteria (copy-paste inclusion criteria): ").strip()
-    exclusion = input("Exclusion Criteria (copy-paste exclusion criteria): ").strip()
+    # Load search term, inclusion, and exclusion criteria from text files
+    search_term_file = os.path.join(script_dir, 'search_term.txt')
+    inclusion_file = os.path.join(script_dir, 'inclusion.txt')
+    exclusion_file = os.path.join(script_dir, 'exclusion.txt')
+    
+    with open(search_term_file, 'r') as f:
+        search_term = f.read().strip()
+    
+    with open(inclusion_file, 'r') as f:
+        inclusion = f.read().strip()
+    
+    with open(exclusion_file, 'r') as f:
+        exclusion = f.read().strip()
     
     # Step 4: Ask user if they want to screen titles
     screen_titles = input("Do you want to screen the titles (y/n)? ").strip().lower() == 'y'
