@@ -20,7 +20,6 @@
 ### 2. ENSURE.py
 
 - Ausführen → Title screening? Abstract screening? (Notiz: die bauen aufeinander auf, man kann also nicht *nur* abstracts screenen)
-- Enter Search Term: #Search Terms aus der Meta-Analyse kopieren
 - Prompt: #Prompt Engineering
 - Output: Performance Assessment
     
