@@ -66,7 +66,7 @@ def main():
         all_matched_pmids_titles = []
 
         # Process titles
-        print("Processing titles...")
+        print("Processing titles... (Please wait)")
         for titles_batch in get_data_in_batches("titles"):
             prompt = generate_prompt(search_term, inclusion, exclusion, titles_batch, "titles", manual)
             screened_title_initials = screen_with_openai(prompt)
@@ -114,7 +114,7 @@ def main():
         all_matched_pmids_abstracts = []
 
         # Process abstracts
-        print("Processing abstracts...")
+        print("Processing abstracts... (Please wait)")
         for abstracts_batch in get_data_in_batches("abstracts"):
             prompt = generate_prompt(search_term, inclusion, exclusion, abstracts_batch, "abstracts", manual)
             screened_abstract_initials = screen_with_openai(prompt)
