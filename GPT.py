@@ -33,8 +33,8 @@ def get_data_in_batches(decision, batch_size=None):
         query = f"SELECT {fields} FROM {table} LIMIT {batch_size} OFFSET {offset}"
         try:
             results = execute_query(query, ENSURE)
-            print(f"Query: {query}")  # Debugging line
-            print(f"Results: {results}")  # Debugging line
+            #print(f"Query: {query}")  # Debugging line
+            #print(f"Results: {results}")  # Debugging line
             if not results:
                 break
             
@@ -140,7 +140,7 @@ def save_pmids_to_file(pmids, file_path):
         with open(file_path, 'w') as file:
             for pmid in pmids:
                 file.write(f"{pmid}\n")
-        print(f"Successfully saved {len(pmids)} PMIDs to {file_path}")
+        #print(f"Successfully saved {len(pmids)} PMIDs to {file_path}")
     except Exception as e:
         print(f"Failed to save PMIDs to file: {e}")
 
@@ -162,12 +162,12 @@ def move_records(pmids, decision):
         return
     
     # Debugging
-    print(f"PMIDs to move: {pmids}")
+    #print(f"PMIDs to move: {pmids}")
     
     # select rows from the source table
     select_query = f"SELECT * FROM {source_table} WHERE pmid IN ({placeholders})"
     selected_rows = execute_query(select_query, ENSURE, params=pmids)
-    print(f"Selected Rows: {selected_rows}")  # Debugging
+    #print(f"Selected Rows: {selected_rows}")  # Debugging
     
     # move each row to destination table
     for row in selected_rows:
@@ -210,7 +210,7 @@ def save_fulltext_pmids_to_file(database_path, output_file):
             for pmid in pmids:
                 file.write(f"{pmid[0]}\n")
 
-        print(f"Successfully saved {len(pmids)} PMIDs to {output_file}")
+        #print(f"Successfully saved {len(pmids)} PMIDs to {output_file}")
     
     except Exception as e:
         print(f"Failed to save PMIDs to file: {e}")
