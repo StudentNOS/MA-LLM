@@ -65,10 +65,10 @@ def generate_prompt(search_term, inclusion, exclusion, data, decision, manual):
     else:
         raise ValueError("Invalid decision parameter")
 
-    prompt = f"Search Terms: {search_term}\n\nList of {data_type}:\n"
-    prompt += "\n\n Inclusion Criteria: {inclusion}"
-    prompt += "\n Exclusion Criteria: {exclusion}"
-    prompt += manual
+    prompt = manual
+    prompt += f"\n\nSearch Terms: {search_term}\n\nList of {data_type}:\n"
+    prompt += "\n\nInclusion Criteria: {inclusion}"
+    prompt += "\nExclusion Criteria: {exclusion}"
     prompt += formatted_data
     
     # inflexible prompt characteristics -> innate part of screening
@@ -98,11 +98,11 @@ def screen_with_openai(prompt):
 #%% Fulltext prompt
 def screen_pdf_with_openai(pdf_text, search_term, inclusion, exclusion, manual_fulltext):
     # inflexible prompt characteristics -> innate part of screening
-    prompt = f"Search Term: {search_term}\n"
-    prompt += "\n\n Inclusion Criteria: {inclusion}"
-    prompt += "\n Exclusion Criteria: {exclusion}"
-    prompt += manual_fulltext
-    prompt += "\n\n Full-text:\n{pdf_text}"
+    prompt = manual_fulltext
+    prompt += f"\n\nSearch Term: {search_term}"
+    prompt += "\n\nInclusion Criteria: {inclusion}"
+    prompt += "\nExclusion Criteria: {exclusion}"
+    prompt += "\n\nFull-text:\n{pdf_text}"
     
     prompt += "\n\nFormat the output as 'Relevant: first 10 characters of the text' or 'Irrelevant: -'."
     prompt += "\nFor example: \nRelevant: Example AB\nRelevant: Example CD\nIrrelevant: -\nRelevant: Example EF\nIrrelevant: -"
