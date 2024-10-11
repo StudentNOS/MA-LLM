@@ -94,8 +94,9 @@ def main():
         sensitivity, specificity, PPV, NPV, tp, tn, fp, fn = calculate_performance_metrics(
             initial_ids, gpt_selected_ids, goldstandard_selected_ids)
         print("Performance metrics for titles:")
-        print(f"Sensitivity: {sensitivity:.4f}")
-        print(f"Specificity: {specificity:.4f}")
+        print("Sensitivity & Specificity:")
+        print(f"{sensitivity:.4f}")
+        print(f"{specificity:.4f}")
         print(f"Positive Predictive Value (PPV): {PPV:.4f}")
         print(f"Negative Predictive Value (NPV): {NPV:.4f}")
         print(f"True Positives: {tp}")
@@ -142,8 +143,9 @@ def main():
         sensitivity, specificity, PPV, NPV, tp, tn, fp, fn = calculate_performance_metrics(
             initial_ids, gpt_selected_ids, goldstandard_selected_ids)
         print("Performance metrics for abstracts:")
-        print(f"Sensitivity: {sensitivity:.4f}")
-        print(f"Specificity: {specificity:.4f}")
+        print("Sensitivity & Specificity:")
+        print(f"{sensitivity:.4f}")
+        print(f"{specificity:.4f}")
         print(f"Positive Predictive Value (PPV): {PPV:.4f}")
         print(f"Negative Predictive Value (NPV): {NPV:.4f}")
         print(f"True Positives: {tp}")
@@ -234,8 +236,9 @@ def main():
     
     # Print performance metrics
     print("Performance metrics for fulltext screening:")
-    print(f"Sensitivity: {sensitivity:.4f}")
-    print(f"Specificity: {specificity:.4f}")
+    print("Sensitivity & Specificity:")
+    print(f"{sensitivity:.4f}")
+    print(f"{specificity:.4f}")
     print(f"Positive Predictive Value (PPV): {PPV:.4f}")
     print(f"Negative Predictive Value (NPV): {NPV:.4f}")
     print(f"True Positives: {tp}")
