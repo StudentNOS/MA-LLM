@@ -24,7 +24,12 @@ def get_data_in_batches(decision, batch_size=None):
     elif decision == "abstracts":
         if batch_size is None:
             batch_size = 20
-        table = "titles"
+        # Check if the "titles" table has entries
+        titles_count = execute_query("SELECT COUNT(*) FROM titles", ENSURE)[0][0]
+        if titles_count > 0:
+            table = "titles"
+        else:
+            table = "Initial"
         fields = "pmid, abstract"
     else:
         raise ValueError("Invalid decision parameter")
@@ -33,8 +38,6 @@ def get_data_in_batches(decision, batch_size=None):
         query = f"SELECT {fields} FROM {table} LIMIT {batch_size} OFFSET {offset}"
         try:
             results = execute_query(query, ENSURE)
-            #print(f"Query: {query}")  # Debugging line
-            #print(f"Results: {results}")  # Debugging line
             if not results:
                 break
             
@@ -62,7 +65,7 @@ def generate_prompt(search_term, inclusion, exclusion, data, decision, manual):
     else:
         raise ValueError("Invalid decision parameter")
 
-    prompt = f"Search Term: {search_term}\n\nList of {data_type}:\n"
+    prompt = f"Search Terms: {search_term}\n\nList of {data_type}:\n"
     prompt += "\n\n Inclusion Criteria: {inclusion}"
     prompt += "\n Exclusion Criteria: {exclusion}"
     prompt += manual
