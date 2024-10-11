@@ -9,7 +9,6 @@ def read_ids_from_file(file_path):
     return ids
 
 def calculate_performance_metrics(initial, gpt_selected, goldstandard_selected):
-        # where we quanity just how hopefully not terribly all this works
     initial_set = set(initial)
     gs_selected_set = set(goldstandard_selected)
     gpt_selected_set = set(gpt_selected)
@@ -27,9 +26,6 @@ def calculate_performance_metrics(initial, gpt_selected, goldstandard_selected):
     return sensitivity, specificity, PPV, NPV, tp, tn, fp, fn
 
 def create_performance_table(tp, tn, fp, fn, sensitivity, specificity, PPV, NPV, filename):
-    """
-    Generates a table with performance metrics, arranged similarly to the uploaded image, and saves it as an image.
-    """
     # Table data
     cell_text = [
         [f"True Positive\n(TP)\n{tp}", f"False Positive\n(FP)\n{fp}", f"Positive\n Predictive\n Value\n{PPV:.2f}"],
@@ -62,9 +58,6 @@ def create_performance_table(tp, tn, fp, fn, sensitivity, specificity, PPV, NPV,
 
     # Save the figure
     plt.savefig(filename, bbox_inches='tight', pad_inches=0.05)
-    """
-    Generates a table with performance metrics, arranged similarly to the uploaded image, and saves it as an image.
-    """
     # Table data
     cell_text = [
         [f"True Positive\n(TP)\n{tp}", f"False Positive\n(FP)\n{fp}", f"Positive\n Predictive\n Value\n{PPV:.2f}"],
