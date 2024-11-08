@@ -1,1 +1,7 @@
-pip install pandas openai fuzzywuzzy matplotlib PyMuPDF Bio openpyxl
+pandas
+openai
+fuzzywuzzy
+matplotlib
+PyMuPDF
+Bio
+openpyxl
