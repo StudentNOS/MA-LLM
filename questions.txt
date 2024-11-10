@@ -11,3 +11,11 @@ ideas:
 output sufficient? -> json format?
 bertscore for similarity
 f1 measure for tradeoff precision and recall
+
+
+!
+pipeline für kostenlose version
+sammo
+
+
+prompts, pipeline, datenanalyse, aufschreiben
