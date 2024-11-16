@@ -2,7 +2,7 @@ import sqlite3
 from Bio import Entrez
 from src.utils.dbconnect import execute_query, ENSURE
 import pandas as pd
-from PATHS import email
+from utils.PATHS import email
 Entrez.email = email
 
 # read PMIDs from file

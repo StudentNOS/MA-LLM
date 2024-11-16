@@ -8,9 +8,9 @@ Created on Sun Jun  9 17:02:52 2024
 import os
 import fitz
 from src.utils.dbconnect import insert, delete_all_data, ENSURE
-from PubMed import count_papers, create_excel_from_db, read_pmids_from_file, fetch_details 
-from GPT import get_data_in_batches, generate_prompt, screen_with_openai, screen_pdf_with_openai, match_data_to_ids, save_pmids_to_file, move_records, save_fulltext_pmids_to_file
-from Performance import read_ids_from_file, calculate_performance_metrics, create_performance_table, fetch_data_for_report_and_chart, create_excel_report, draw_plot_chart
+from utils.PubMed import count_papers, create_excel_from_db, read_pmids_from_file, fetch_details 
+from utils.GPT import get_data_in_batches, generate_prompt, screen_with_openai, screen_pdf_with_openai, match_data_to_ids, save_pmids_to_file, move_records, save_fulltext_pmids_to_file
+from prompt_engineering.Performance import read_ids_from_file, calculate_performance_metrics, create_performance_table, fetch_data_for_report_and_chart, create_excel_report, draw_plot_chart
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 

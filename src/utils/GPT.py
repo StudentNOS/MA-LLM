@@ -9,7 +9,7 @@ Created on Sun Jun  9 16:43:00 2024
 from src.utils.dbconnect import execute_query, insert, ENSURE
 from openai import OpenAI
 from fuzzywuzzy import fuzz
-from PATHS import api_key
+from utils.PATHS import api_key
 
 client = OpenAI(api_key=api_key)
 #%% Fetching
