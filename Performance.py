@@ -1,7 +1,7 @@
 import sqlite3
 import pandas as pd
 import matplotlib.pyplot as plt
-from dbconnect import ENSURE
+from src.utils.dbconnect import ENSURE
 
 def read_ids_from_file(file_path):
     with open(file_path, 'r') as file:

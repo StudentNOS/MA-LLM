@@ -5,3 +5,5 @@ matplotlib
 PyMuPDF
 Bio
 openpyxl
+sammo
+scikit-learn

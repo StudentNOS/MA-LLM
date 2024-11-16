@@ -6,7 +6,7 @@ Created on Sun Jun  9 16:43:00 2024
 """
 
 
-from dbconnect import execute_query, insert, ENSURE
+from src.utils.dbconnect import execute_query, insert, ENSURE
 from openai import OpenAI
 from fuzzywuzzy import fuzz
 from PATHS import api_key
@@ -53,7 +53,7 @@ def get_data_in_batches(decision, batch_size=None):
         offset += batch_size
 
 #%% Prompt
-def generate_prompt(search_term, inclusion, exclusion, data, decision, manual):
+def generate_prompt(data, decision, manual):
     if decision == "titles":
         data_type = "titles"
         formatted_data = "\n".join(f"{i}. {title}" for i, title in enumerate(data, 1))
@@ -66,9 +66,7 @@ def generate_prompt(search_term, inclusion, exclusion, data, decision, manual):
         raise ValueError("Invalid decision parameter")
 
     prompt = manual
-    prompt += f"\n\nSearch Terms: {search_term}\n\nList of {data_type}:\n"
-    prompt += "\n\nInclusion Criteria: {inclusion}"
-    prompt += "\nExclusion Criteria: {exclusion}"
+    prompt += f"\n\nList of {data_type}:\n"
     prompt += formatted_data
     
     # inflexible prompt characteristics -> innate part of screening

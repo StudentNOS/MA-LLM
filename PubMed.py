@@ -1,6 +1,6 @@
 import sqlite3
 from Bio import Entrez
-from dbconnect import execute_query, ENSURE
+from src.utils.dbconnect import execute_query, ENSURE
 import pandas as pd
 from PATHS import email
 Entrez.email = email
