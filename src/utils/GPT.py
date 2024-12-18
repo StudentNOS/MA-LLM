@@ -8,22 +8,27 @@ Created on Sun Jun  9 16:43:00 2024
 
 from src.utils.dbconnect import execute_query, insert, ENSURE
 from openai import OpenAI
-from fuzzywuzzy import fuzz
-from utils.PATHS import api_key
+#from fuzzywuzzy import fuzz
+#from PATHS import api_key
 
-client = OpenAI(api_key=api_key)
+#client = OpenAI(api_key=api_key)
+
+client = OpenAI(
+    base_url="https://llm1-compute.cms.hu-berlin.de/v1/",
+    api_key="required-but-not-used",  # Placeholder as HU LLM does not validate keys
+)
 #%% Fetching
 def get_data_in_batches(decision, batch_size=None):
     offset = 0
     
     if decision == "titles":
         if batch_size is None:
-            batch_size = 100
+            batch_size = 10
         table = "Initial"
         fields = "pmid, title"
     elif decision == "abstracts":
         if batch_size is None:
-            batch_size = 20
+            batch_size = 2
         # Check if the "titles" table has entries
         titles_count = execute_query("SELECT COUNT(*) FROM titles", ENSURE)[0][0]
         if titles_count > 0:
@@ -57,23 +62,25 @@ def generate_prompt(data, decision, manual):
     if decision == "titles":
         data_type = "titles"
         formatted_data = "\n".join(f"{i}. {title}" for i, title in enumerate(data, 1))
-        format_instruction = "first 10 characters of each relevant title"
+        format_instruction = "title"
     elif decision == "abstracts":
         data_type = "abstracts"
-        formatted_data = "\n".join(abstract for _, abstract in data)
-        format_instruction = "first 10 characters of each relevant abstract"
+        formatted_data = "\n".join(f"{i}. {abstract}" for i, abstract in enumerate(data, 1))
+        format_instruction = "abstract"
     else:
         raise ValueError("Invalid decision parameter")
 
     prompt = manual
-    prompt += f"\n\nList of {data_type}:\n"
+    prompt += f"\n\nList of {data_type} for screening:\n"
     prompt += formatted_data
     
     # inflexible prompt characteristics -> innate part of screening
-    prompt += "\n\nFormat the output as a comma-separated string with each entry enclosed in single quotes. "
-    prompt += f"Each entry should be the {format_instruction}. "
-    prompt += "For example: 'Example AB', 'Example CD', 'Example EF'."
+    prompt += "\n\nFormat the output as a comma-separated string with each entry enclosed in single quotes."
+    prompt += f"Each entry should be the unique PMID of the {format_instruction}."
+    prompt += "For example: '36823236', '35841079', '21608000'."
     prompt += "\n\nOutput this and only this. Format your response this way without exception."
+    
+    #print(f"Generated Prompt: {prompt}")
     
     return prompt
 
@@ -82,58 +89,30 @@ def generate_prompt(data, decision, manual):
 def screen_with_openai(prompt):
     try:
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "system", "content": prompt}],
+            model='ModelCloud/Mistral-Large-Instruct-2407-gptq-4bit',
+            messages=[{"role": "user", "content": prompt}],
             max_tokens=2048
         )
         response_text = response.choices[0].message.content.strip()
-        split_results = [item.strip("'") for item in response_text.split("', '")]
+        
+        # Minimal addition: print the raw response for manual checking
+        print(f"Raw LLM Response: {response_text}")
+        
+        split_results = [item.strip(" '") for item in response_text.split(",")]
+        
+        #print(f"Split: {split_results}")
+        
         return split_results
     except Exception as e:
         print(f"Error in OpenAI API call: {e}")
         return []
 
-#%% Fulltext prompt
-def screen_pdf_with_openai(pdf_text, search_term, inclusion, exclusion, manual_fulltext):
-    # inflexible prompt characteristics -> innate part of screening
-    prompt = manual_fulltext
-    prompt += f"\n\nSearch Term: {search_term}"
-    prompt += "\n\nInclusion Criteria: {inclusion}"
-    prompt += "\nExclusion Criteria: {exclusion}"
-    prompt += "\n\nFull-text:\n{pdf_text}"
-    
-    prompt += "\n\nFormat the output as 'Relevant: first 10 characters of the text' or 'Irrelevant: -'."
-    prompt += "\nFor example: \nRelevant: Example AB\nRelevant: Example CD\nIrrelevant: -\nRelevant: Example EF\nIrrelevant: -"
-    prompt += "\nOutput this and only this. Format your response this way without exception."
-    
-    try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "system", "content": prompt}],
-            max_tokens=2048
-        )
-        response_text = response.choices[0].message.content.strip()
-        return response_text
-    except Exception as e:
-        print(f"Error in OpenAI API call: {e}")
-        return "Irrelevant: -"
-
 #%% Matching
 def match_data_to_ids(initials, data, decision):
-    matched_ids = []
-    
-    if decision == "titles":
-        matched_ids = [
-            pmid for i, (pmid, title) in enumerate(data)
-            if any(fuzz.partial_ratio(title, initial) > 90 for initial in initials)
-        ]
-    elif decision == "abstracts":
-        for initial in initials:
-            for pmid, abstract in data:
-                if fuzz.partial_ratio(abstract[:10], initial) > 90:
-                    matched_ids.append(pmid)
-                    break
+    # Extract PMIDs from the data and match against `initials` (IDs returned by LLM)
+    matched_ids = [pmid for pmid, _ in data if pmid in initials]
     return matched_ids
+
 
 #%% Save IDs
 def save_pmids_to_file(pmids, file_path):
@@ -193,6 +172,31 @@ def move_records(pmids, decision):
     # delete rows from the source table
     delete_query = f"DELETE FROM {source_table} WHERE pmid IN ({placeholders})"
     execute_query(delete_query, ENSURE, params=pmids)
+
+#%% Fulltext prompt
+def screen_pdf_with_openai(pdf_text, search_term, inclusion, exclusion, manual_fulltext):
+    # inflexible prompt characteristics -> innate part of screening
+    prompt = manual_fulltext
+    prompt += f"\n\nSearch Term: {search_term}"
+    prompt += "\n\nInclusion Criteria: {inclusion}"
+    prompt += "\nExclusion Criteria: {exclusion}"
+    prompt += "\n\nFull-text:\n{pdf_text}"
+    
+    prompt += "\n\nFormat the output as 'Relevant: first 10 characters of the text' or 'Irrelevant: -'."
+    prompt += "\nFor example: \nRelevant: Example AB\nRelevant: Example CD\nIrrelevant: -\nRelevant: Example EF\nIrrelevant: -"
+    prompt += "\nOutput this and only this. Format your response this way without exception."
+    
+    try:
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "system", "content": prompt}],
+            max_tokens=2048
+        )
+        response_text = response.choices[0].message.content.strip()
+        return response_text
+    except Exception as e:
+        print(f"Error in OpenAI API call: {e}")
+        return "Irrelevant: -"
 
 #%% Fulltext IDs to txt file 
 def save_fulltext_pmids_to_file(database_path, output_file):
