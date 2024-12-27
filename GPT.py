@@ -13,12 +13,13 @@ import re
 #from fuzzywuzzy import fuzz
 #from PATHS import api_key
 
-client = OpenAI(api_key="OPENAI_API_KEY_NOS")
+#client = OpenAI(api_key="OPENAI_API_KEY_NOS")
 
-# client = OpenAI(
-#     base_url= "https://llm1-compute.cms.hu-berlin.de/v1/",
-#     api_key="required-but-not-used",  # Placeholder as HU LLM does not validate keys
-# )
+client = OpenAI(
+    base_url= "https://llm1-compute.cms.hu-berlin.de/v1/",
+    api_key="required-but-not-used",  # Placeholder as HU LLM does not validate keys
+)
+
 #%% Fetching
 def get_data_in_batches(decision, batch_size=None):
     offset = 0

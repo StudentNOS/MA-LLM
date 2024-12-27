@@ -127,13 +127,13 @@ def fetch_data_for_report_and_chart():
         # Convert set to list and return
         return list(data)
 
-def create_excel_report(data, file_path="Screening_Progress_Report.xlsx"):
+def create_csv_report(data, file_path="Screening_Progress_Report.xlsx"):
     """
-    Creates an Excel report from the provided data.
+    Creates an CSV report from the provided data.
     """
     df = pd.DataFrame(data, columns=["Initial", "titles", "abstracts"])
-    df.to_excel(file_path, index=False)
-    print(f"Excel report generated: {file_path}")
+    df.to_csv(file_path, index=False)
+    print(f"CSV report generated: {file_path}")
 
 def draw_plot_chart(data):
     """

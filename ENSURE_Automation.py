@@ -10,9 +10,9 @@ from numpy import nan
 import os
 import fitz
 from dbconnect import insert, delete_all_data, ENSURE
-from PubMed import count_papers, create_excel_from_db, read_pmids_from_file, fetch_details 
+from PubMed import count_papers, create_csv_from_db, read_pmids_from_file, fetch_details 
 from GPT import get_data_in_batches, generate_prompt, screen_with_openai, screen_pdf_with_openai, match_data_to_ids, save_pmids_to_file, move_records, save_fulltext_pmids_to_file
-from Performance import read_ids_from_file, calculate_performance_metrics, create_performance_table, fetch_data_for_report_and_chart, create_excel_report, draw_plot_chart
+from Performance import read_ids_from_file, calculate_performance_metrics, create_performance_table, fetch_data_for_report_and_chart, draw_plot_chart, create_csv_report
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -112,12 +112,12 @@ def main(screen_titles, TitlePrompt, screen_abstracts, AbstractPrompt, row_index
     delete_all_data(ENSURE)
 
 if __name__ == "__main__":
-    Prompts = pd.read_excel("Prompts.xlsx")
+    Prompts = pd.read_csv("Prompts.xlsx")
     
     for Index, CurrentPrompt in Prompts.iterrows():
         print(Index)
         main(CurrentPrompt["screen_titles"], CurrentPrompt["TitlePrompt"], 
              CurrentPrompt["screen_abstracts"], CurrentPrompt["AbstractPrompt"], Index, Prompts)
     
-    # Save updated DataFrame back to the same Excel file
-    Prompts.to_excel("Prompts.xlsx", index=False)
+    # Save updated DataFrame back to the same CSV file
+    Prompts.to_csv("Prompts.xlsx", index=False)
