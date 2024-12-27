@@ -18,7 +18,8 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 
 def main(screen_titles, TitlePrompt, screen_abstracts, AbstractPrompt, row_index, Prompts):
     # Step 1: Read PMIDs and fetch details
-    pmid_file = "Initial.txt"
+    #pmid_file = "Initial.txt"
+    pmid_file = os.path.join(script_dir, 'Initial.txt')
     pmids = read_pmids_from_file(pmid_file)
     records = fetch_details(pmids)
     
@@ -38,7 +39,7 @@ def main(screen_titles, TitlePrompt, screen_abstracts, AbstractPrompt, row_index
         all_matched_pmids_titles = []
 
         for titles_batch in get_data_in_batches("titles"):
-            prompt = generate_prompt(titles_batch, "titles", TitlePrompt)
+            prompt = generate_prompt(titles_batch, "titles", str(TitlePrompt))
             screened_title_initials = screen_with_openai(prompt)
             matched_pmids_titles = match_data_to_ids(screened_title_initials, titles_batch, "titles")
             

@@ -1,9 +1,1 @@
-pandas
-openai
-fuzzywuzzy
-matplotlib
-PyMuPDF
-Bio
-openpyxl
-sammo
-scikit-learn
+pip install pandas openai fuzzywuzzy matplotlib PyMuPDF Bio openpyxl

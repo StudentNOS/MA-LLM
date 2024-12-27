@@ -1,5 +1,5 @@
 import sqlite3
-from src.utils.dbconnect import ENSURE
+from dbconnect import ENSURE
 
 
 def delete_all_data(db_path):
