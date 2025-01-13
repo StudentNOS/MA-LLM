@@ -8,18 +8,19 @@ Created on Sun Jun  9 17:02:52 2024
 import pandas as pd
 from numpy import nan
 import os
-import fitz
+#import fitz
 from dbconnect import insert, delete_all_data, ENSURE
-from PubMed import count_papers, create_csv_from_db, read_pmids_from_file, fetch_details 
-from GPT import get_data_in_batches, generate_prompt, screen_with_openai, screen_pdf_with_openai, match_data_to_ids, save_pmids_to_file, move_records, save_fulltext_pmids_to_file
-from Performance import read_ids_from_file, calculate_performance_metrics, create_performance_table, fetch_data_for_report_and_chart, draw_plot_chart, create_csv_report
+from PubMed import count_papers, create_excel_from_db, read_pmids_from_file, fetch_details 
+from GPT import get_data_in_batches, generate_prompt, screen_with_openai, screen_pdf_with_openai, match_data_to_ids, save_pmids_to_file, move_records, save_fulltext_pmids_to_file # for LLama models import GPT_forLLama
+from Performance import read_ids_from_file, calculate_performance_metrics, create_performance_table, fetch_data_for_report_and_chart, create_excel_report, draw_plot_chart
+import ssl
 
+ssl._create_default_https_context = ssl._create_unverified_context
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 def main(screen_titles, TitlePrompt, screen_abstracts, AbstractPrompt, row_index, Prompts):
     # Step 1: Read PMIDs and fetch details
-    #pmid_file = "Initial.txt"
-    pmid_file = os.path.join(script_dir, 'Initial.txt')
+    pmid_file = "Initial.txt"
     pmids = read_pmids_from_file(pmid_file)
     records = fetch_details(pmids)
     
@@ -39,7 +40,7 @@ def main(screen_titles, TitlePrompt, screen_abstracts, AbstractPrompt, row_index
         all_matched_pmids_titles = []
 
         for titles_batch in get_data_in_batches("titles"):
-            prompt = generate_prompt(titles_batch, "titles", str(TitlePrompt))
+            prompt = generate_prompt(titles_batch, "titles", TitlePrompt)
             screened_title_initials = screen_with_openai(prompt)
             matched_pmids_titles = match_data_to_ids(screened_title_initials, titles_batch, "titles")
             
@@ -112,12 +113,12 @@ def main(screen_titles, TitlePrompt, screen_abstracts, AbstractPrompt, row_index
     delete_all_data(ENSURE)
 
 if __name__ == "__main__":
-    Prompts = pd.read_csv("Prompts.xlsx")
+    Prompts = pd.read_excel("Prompts.xlsx")
     
     for Index, CurrentPrompt in Prompts.iterrows():
         print(Index)
         main(CurrentPrompt["screen_titles"], CurrentPrompt["TitlePrompt"], 
              CurrentPrompt["screen_abstracts"], CurrentPrompt["AbstractPrompt"], Index, Prompts)
     
-    # Save updated DataFrame back to the same CSV file
-    Prompts.to_csv("Prompts.xlsx", index=False)
+    # Save updated DataFrame back to the same Excel file
+    Prompts.to_excel("Prompts.xlsx", index=False)

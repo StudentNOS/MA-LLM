@@ -6,20 +6,18 @@ Created on Sun Jun  9 16:43:00 2024
 """
 
 
+from groq import Groq
 from dbconnect import execute_query, insert, ENSURE
-from openai import OpenAI
-import json
-import re
-#from fuzzywuzzy import fuzz
-#from PATHS import api_key
+#from openai import OpenAI
+from fuzzywuzzy import fuzz
+from PATHS import api_key
 
-#client = OpenAI(api_key="OPENAI_API_KEY_NOS")
+client = Groq(api_key=api_key)
 
-client = OpenAI(
-    base_url= "https://llm1-compute.cms.hu-berlin.de/v1/",
-    api_key="required-but-not-used",  # Placeholder as HU LLM does not validate keys
-)
-
+# client = OpenAI(
+#     base_url="https://llm1-compute.cms.hu-berlin.de/v1/",
+#     api_key="required-but-not-used",  # Placeholder as HU LLM does not validate keys
+# )
 #%% Fetching
 def get_data_in_batches(decision, batch_size=None):
     offset = 0
@@ -60,34 +58,6 @@ def get_data_in_batches(decision, batch_size=None):
         
         offset += batch_size
 
-def parse_json_llm_response(response: str):
-    """
-    Parses the response from the LLM to extract JSON content.
-
-    The function first attempts to parse the entire response as JSON. If that fails,
-    it looks for a JSON block enclosed in a ```json markdown block and attempts
-    to parse it. If successful, it returns the parsed JSON object; otherwise, it returns None.
-
-    :param response: The response string from the LLM.
-    :type response: str
-    :return: The parsed JSON object or None if parsing fails.
-    :rtype: dict or None
-    """
-    # First, try to parse the entire response as JSON
-    try:
-        return json.loads(response)
-    except json.JSONDecodeError:
-        pass  # Proceed to regex if parsing fails
-
-    # Use regex to find the JSON block within the markdown
-    json_match = re.search(r'```json\n((?:.|\n)*)\n\s*```', response, re.DOTALL)
-
-    if json_match:
-        json_str = json_match.group(1).strip()  # Extract the JSON string
-        return json.loads(json_str)  # Parse the JSON string into a Python dictionary
-
-    return None  # Return None if no JSON block is found
-
 #%% Prompt
 def generate_prompt(data, decision, manual):
     if decision == "titles":
@@ -101,13 +71,15 @@ def generate_prompt(data, decision, manual):
     else:
         raise ValueError("Invalid decision parameter")
 
-    prompt = (
-        f"\n\nList of {data_type} for screening:\n"
-        f"{formatted_data}"
-        f"\n\nFormat the output as a comma-separated string with each entry enclosed in single quotes."
-        f"Each entry should be the unique PMID of the {format_instruction}."
-        f"For example: '36823236', '35841079', '21608000'."
-        f"\n\nOutput this and only this. Format your response this way without exception.")
+    prompt = manual
+    prompt += f"\n\nList of {data_type} for screening:\n"
+    prompt += formatted_data
+    
+    # inflexible prompt characteristics -> innate part of screening
+    prompt += "\n\nFormat the output as a comma-separated string with each entry enclosed in single quotes."
+    prompt += f"Each entry should be the unique PMID of the {format_instruction}."
+    prompt += "For example: '36823236', '35841079', '21608000'."
+    prompt += "\n\nOutput this and only this. Format your response this way without exception."
     
     #print(f"Generated Prompt: {prompt}")
     
@@ -117,24 +89,18 @@ def generate_prompt(data, decision, manual):
 #%% Screening
 def screen_with_openai(prompt):
     try:
-        response = client.chat.completions.create(
-            model='ModelCloud/Mistral-Large-Instruct-2407-gptq-4bit',
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=2048,
-            response_format={"type": "json_object"}
-        )
-        response_text = response.choices[0].message.content #.strip()
-        
-        # Minimal addition: print the raw response for manual checking
-        print(f"Raw LLM Response: {response_text}")
 
-        response_dict = parse_json_llm_response(response_text)
-        return response_dict
-        
-        #split_results = [item.strip(" '") for item in response_text.split(",")]
-        
-        #print(f"Split: {split_results}")
-        
+        response = client.chat.completions.create(
+        messages=[
+        {
+            "role": "user",
+            "content": prompt,
+        }
+        ],
+        model="llama-guard-3-8b",
+        )
+        response_text = response.choices[0].message.content.strip()
+        split_results = [item.strip("'") for item in response_text.split("', '")]
         return split_results
     except Exception as e:
         print(f"Error in OpenAI API call: {e}")
@@ -206,31 +172,27 @@ def move_records(pmids, decision):
     delete_query = f"DELETE FROM {source_table} WHERE pmid IN ({placeholders})"
     execute_query(delete_query, ENSURE, params=pmids)
 
-
 #%% Fulltext prompt
 def screen_pdf_with_openai(pdf_text, search_term, inclusion, exclusion, manual_fulltext):
     # inflexible prompt characteristics -> innate part of screening
-    prompt = (
-        f"\n\nSearch Term: {search_term}"
-        f"\n\nInclusion Criteria: {inclusion}"
-        f"\nExclusion Criteria: {exclusion}"
-        f"\n\nFull-text:\n{pdf_text}"
-        f"\n\nFormat the output as 'Relevant: first 10 characters of the text' or 'Irrelevant: -'."
-        f"\nFor example: \nRelevant: Example AB\nRelevant: Example CD\nIrrelevant: -\nRelevant: Example EF\nIrrelevant: -"
-        f"\nOutput this and only this. Format your response this way without exception.")
+    prompt = manual_fulltext
+    prompt += f"\n\nSearch Term: {search_term}"
+    prompt += "\n\nInclusion Criteria: {inclusion}"
+    prompt += "\nExclusion Criteria: {exclusion}"
+    prompt += "\n\nFull-text:\n{pdf_text}"
+    
+    prompt += "\n\nFormat the output as 'Relevant: first 10 characters of the text' or 'Irrelevant: -'."
+    prompt += "\nFor example: \nRelevant: Example AB\nRelevant: Example CD\nIrrelevant: -\nRelevant: Example EF\nIrrelevant: -"
+    prompt += "\nOutput this and only this. Format your response this way without exception."
     
     try:
         response = client.chat.completions.create(
-            messages=[{"role": "system", "content": prompt}],
             model="gpt-3.5-turbo",
-            max_tokens=2048,
-            response_format={"type": "json_object"}
+            messages=[{"role": "system", "content": prompt}],
+            max_tokens=2048
         )
-        response_text = response.choices[0].message.content #.strip()
-        print(f"Raw response content: {response_text}")
-        response_dict = parse_json_llm_response(response_text)
-        return response_dict
-    
+        response_text = response.choices[0].message.content.strip()
+        return response_text
     except Exception as e:
         print(f"Error in OpenAI API call: {e}")
         return "Irrelevant: -"

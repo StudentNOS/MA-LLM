@@ -27,9 +27,9 @@ def count_papers():
     except IndexError:
         return 0
 
-# create CSV from database
-def create_csv_from_db():
+# create Excel from database
+def create_excel_from_db():
     with sqlite3.connect(ENSURE) as conn:
         df = pd.read_sql_query("SELECT pmid, title, abstract FROM Initial", conn)
-        df.to_csv("PubMed_Data.csv", index=False)
-        print("CSV file 'PubMed_Data.csv' created.")
+        df.to_excel("PubMed_Data.xlsx", index=False)
+        print("Excel file 'PubMed_Data.xlsx' created.")
