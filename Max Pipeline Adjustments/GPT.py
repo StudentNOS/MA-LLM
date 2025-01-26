@@ -80,7 +80,7 @@ def generate_prompt(data, decision, manual):
     prompt += "For example: '36823236', '35841079', '21608000'."
     prompt += "\n\nOutput this and only this. Format your response this way without exception."
     
-    #print(f"Generated Prompt: {prompt}")
+    print(f"Generated Prompt: {prompt}")
     
     return prompt
 
