@@ -99,16 +99,16 @@ def screen_with_openai(prompt):
                     "content": prompt,
                 }
                 ],
-                temperature=0.25,
-                model="mixtral-8x7b-32768",#llama3-groq-70b-8192-tool-use-preview
+                #temperature=0.7,
+                model="gemma-7b-it",#llama3-groq-70b-8192-tool-use-preview
                 )#2100Tokens/8378Length
                 response_text = response.choices[0].message.content.strip()
                 split_results = [item.strip("'") for item in response_text.split("', '")]
                 Continue = True
             except Exception as e:
                 if str(e).count("Error code: 429") > 0:
-                    print("Sleeping for 600 s.")
-                    time.sleep(600)
+                    print("Sleeping for 20 s.")
+                    time.sleep(20)
                 continue
         return split_results
     

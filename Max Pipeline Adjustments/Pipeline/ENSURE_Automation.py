@@ -39,11 +39,13 @@ def main(screen_titles, TitlePrompt, screen_abstracts, AbstractPrompt, row_index
     if screen_titles == 1:
         all_screened_titles = []
         all_matched_pmids_titles = []
+        Return_List = list()
         #BatchForBatches = 0
         for titles_batch in get_data_in_batches("titles"):
             prompt = generate_prompt(titles_batch, "titles", TitlePrompt)
             print("Send Prompt of length:", len(prompt), "Rough tokens:",  len(prompt)/4)
             screened_title_initials = screen_with_openai(prompt)
+            Return_List.append(screened_abstract_initials)
             print("Result obtained")
             matched_pmids_titles = match_data_to_ids(screened_title_initials, titles_batch, "titles")
             
@@ -75,6 +77,7 @@ def main(screen_titles, TitlePrompt, screen_abstracts, AbstractPrompt, row_index
         Prompts.at[row_index, "tn_titles"] = tn
         Prompts.at[row_index, "fp_titles"] = fp
         Prompts.at[row_index, "fn_titles"] = fn
+        Prompts.at[row_index, "Output"] = str(Return_List)
     else:
         # Insert NaN for skipped title screening
         for col in ["sensitivity_titles", "specificity_titles", "PPV_titles", "NPV_titles", "tp_titles", "tn_titles", "fp_titles", "fn_titles"]:
@@ -84,12 +87,13 @@ def main(screen_titles, TitlePrompt, screen_abstracts, AbstractPrompt, row_index
     if screen_abstracts == 1:
         all_screened_abstracts = []
         all_matched_pmids_abstracts = []
-        
+        Return_List = list()
         #BatchForBatches = 0
         for abstracts_batch in get_data_in_batches("abstracts"):
             prompt = generate_prompt(abstracts_batch, "abstracts", AbstractPrompt)
             print("Send Prompt of length:", len(prompt), "Rough tokens:",  len(prompt)/4)
             screened_abstract_initials = screen_with_openai(prompt)
+            Return_List.append(screened_abstract_initials)
             print("Result obtained")
             matched_pmids_abstracts = match_data_to_ids(screened_abstract_initials, abstracts_batch, "abstracts")
             
@@ -114,6 +118,7 @@ def main(screen_titles, TitlePrompt, screen_abstracts, AbstractPrompt, row_index
             initial_ids, gpt_selected_ids, goldstandard_selected_ids)
         
         # Update Prompts DataFrame
+        #print(Return_List)
         Prompts.at[row_index, "sensitivity_abstracts"] = sensitivity
         Prompts.at[row_index, "specificity_abstracts"] = specificity
         Prompts.at[row_index, "PPV_abstracts"] = PPV
@@ -122,6 +127,7 @@ def main(screen_titles, TitlePrompt, screen_abstracts, AbstractPrompt, row_index
         Prompts.at[row_index, "tn_abstracts"] = tn
         Prompts.at[row_index, "fp_abstracts"] = fp
         Prompts.at[row_index, "fn_abstracts"] = fn
+        Prompts.at[row_index, "Output"] = str(Return_List)
     else:
         # Insert NaN for skipped abstract screening
         for col in ["sensitivity_abstracts", "specificity_abstracts", "PPV_abstracts", "NPV_abstracts", "tp_abstracts", "tn_abstracts", "fp_abstracts", "fn_abstracts"]:
@@ -130,6 +136,7 @@ def main(screen_titles, TitlePrompt, screen_abstracts, AbstractPrompt, row_index
     delete_all_data(ENSURE)
 
 if __name__ == "__main__":
+    create_excel_from_db()
     Prompts = pd.read_excel("Prompts.xlsx")
     
     for Index, CurrentPrompt in Prompts.iterrows():
