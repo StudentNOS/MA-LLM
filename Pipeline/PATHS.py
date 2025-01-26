@@ -1,6 +1,7 @@
 
 #Hier den API Key eingeben
-api_key = ''
+#Project
+api_key= ''
 
 #Hier die Enrez Mail eingeben
-email=''
+email='tilladam0815@gmail.com'
