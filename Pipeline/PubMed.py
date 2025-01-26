@@ -33,3 +33,5 @@ def create_excel_from_db():
         df = pd.read_sql_query("SELECT pmid, title, abstract FROM Initial", conn)
         df.to_excel("PubMed_Data.xlsx", index=False)
         print("Excel file 'PubMed_Data.xlsx' created.")
+
+create_excel_from_db()

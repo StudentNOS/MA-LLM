@@ -45,7 +45,7 @@ def main(screen_titles, TitlePrompt, screen_abstracts, AbstractPrompt, row_index
             prompt = generate_prompt(titles_batch, "titles", TitlePrompt)
             print("Send Prompt of length:", len(prompt), "Rough tokens:",  len(prompt)/4)
             screened_title_initials = screen_with_openai(prompt)
-            Return_List.append(screened_abstract_initials)
+            Return_List.append(screened_title_initials)
             print("Result obtained")
             matched_pmids_titles = match_data_to_ids(screened_title_initials, titles_batch, "titles")
             
