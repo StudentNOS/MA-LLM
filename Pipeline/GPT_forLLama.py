@@ -11,7 +11,7 @@ from dbconnect import execute_query, insert, ENSURE
 #from openai import OpenAI
 from fuzzywuzzy import fuzz
 from PATHS import api_key
-
+import time
 client = Groq(api_key=api_key)
 
 # client = OpenAI(
@@ -71,7 +71,7 @@ def generate_prompt(data, decision, manual):
     else:
         raise ValueError("Invalid decision parameter")
 
-    prompt = manual
+    prompt = str(manual)
     prompt += f"\n\nList of {data_type} for screening:\n"
     prompt += formatted_data
     
@@ -81,30 +81,37 @@ def generate_prompt(data, decision, manual):
     prompt += "For example: '36823236', '35841079', '21608000'."
     prompt += "\n\nOutput this and only this. Format your response this way without exception."
     
-    #print(f"Generated Prompt: {prompt}")
+    print(f"Generated Prompt: {prompt}")
     
     return prompt
 
 
 #%% Screening
 def screen_with_openai(prompt):
-    try:
-
-        response = client.chat.completions.create(
-        messages=[
-        {
-            "role": "user",
-            "content": prompt,
-        }
-        ],
-        model="llama-guard-3-8b",
-        )
-        response_text = response.choices[0].message.content.strip()
-        split_results = [item.strip("'") for item in response_text.split("', '")]
+    
+        Continue = False
+        while not Continue:
+            try:
+                response = client.chat.completions.create(
+                messages=[
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+                ],
+                #temperature=0.7,
+                model="gemma-7b-it",#llama3-groq-70b-8192-tool-use-preview
+                )#2100Tokens/8378Length
+                response_text = response.choices[0].message.content.strip()
+                split_results = [item.strip("'") for item in response_text.split("', '")]
+                Continue = True
+            except Exception as e:
+                if str(e).count("Error code: 429") > 0:
+                    print("Sleeping for 20 s.")
+                    time.sleep(20)
+                continue
         return split_results
-    except Exception as e:
-        print(f"Error in OpenAI API call: {e}")
-        return []
+    
 
 #%% Matching
 def match_data_to_ids(initials, data, decision):

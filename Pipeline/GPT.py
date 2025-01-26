@@ -71,8 +71,8 @@ def generate_prompt(data, decision, manual):
         raise ValueError("Invalid decision parameter")
 
     prompt = str(manual)
-    prompt += str(f"\n\nList of {data_type} for screening:\n")
-    prompt += str(formatted_data)
+    prompt += f"\n\nList of {data_type} for screening:\n"
+    prompt += formatted_data
     
     # inflexible prompt characteristics -> innate part of screening
     prompt += "\n\nFormat the output as a comma-separated string with each entry enclosed in single quotes."
@@ -96,7 +96,7 @@ def screen_with_openai(prompt):
         response_text = response.choices[0].message.content.strip()
         
         # Minimal addition: print the raw response for manual checking
-        print(f"Raw LLM Response: {response_text}")
+        #print(f"Raw LLM Response: {response_text}")
         
         split_results = [item.strip(" '") for item in response_text.split(",")]
         
