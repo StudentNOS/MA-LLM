@@ -12,7 +12,7 @@ import time
 #import fitz
 from dbconnect import insert, delete_all_data, ENSURE
 from PubMed import count_papers, create_excel_from_db, read_pmids_from_file, fetch_details 
-from GPT import get_data_in_batches, generate_prompt, screen_with_openai, screen_pdf_with_openai, match_data_to_ids, save_pmids_to_file, move_records, save_fulltext_pmids_to_file # for LLama models import GPT_forLLama
+from GPT_forLLama import get_data_in_batches, generate_prompt, screen_with_openai, screen_pdf_with_openai, match_data_to_ids, save_pmids_to_file, move_records, save_fulltext_pmids_to_file # for LLama models import GPT_forLLama
 from Performance import read_ids_from_file, calculate_performance_metrics, create_performance_table, fetch_data_for_report_and_chart, create_excel_report, draw_plot_chart
 import ssl
 
