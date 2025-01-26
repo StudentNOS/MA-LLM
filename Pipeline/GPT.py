@@ -23,12 +23,12 @@ def get_data_in_batches(decision, batch_size=None):
     
     if decision == "titles":
         if batch_size is None:
-            batch_size = 10
+            batch_size = 20
         table = "Initial"
         fields = "pmid, title"
     elif decision == "abstracts":
         if batch_size is None:
-            batch_size = 2
+            batch_size = 5
         # Check if the "titles" table has entries
         titles_count = execute_query("SELECT COUNT(*) FROM titles", ENSURE)[0][0]
         if titles_count > 0:
@@ -70,9 +70,9 @@ def generate_prompt(data, decision, manual):
     else:
         raise ValueError("Invalid decision parameter")
 
-    prompt = manual
-    prompt += f"\n\nList of {data_type} for screening:\n"
-    prompt += formatted_data
+    prompt = str(manual)
+    prompt += str(f"\n\nList of {data_type} for screening:\n")
+    prompt += str(formatted_data)
     
     # inflexible prompt characteristics -> innate part of screening
     prompt += "\n\nFormat the output as a comma-separated string with each entry enclosed in single quotes."

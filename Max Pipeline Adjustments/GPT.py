@@ -23,12 +23,12 @@ def get_data_in_batches(decision, batch_size=None):
     
     if decision == "titles":
         if batch_size is None:
-            batch_size = 10
+            batch_size = 50
         table = "Initial"
         fields = "pmid, title"
     elif decision == "abstracts":
         if batch_size is None:
-            batch_size = 2
+            batch_size = 5
         # Check if the "titles" table has entries
         titles_count = execute_query("SELECT COUNT(*) FROM titles", ENSURE)[0][0]
         if titles_count > 0:
