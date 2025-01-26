@@ -24,7 +24,6 @@ def main(screen_titles, TitlePrompt, screen_abstracts, AbstractPrompt, row_index
     pmid_file = "Initial.txt"
     pmids = read_pmids_from_file(pmid_file)
     records = fetch_details(pmids)
-    create_excel_from_db()
     
     # Step 2: Insert fetched records into the 'Initial' table
     for article in records.get("PubmedArticle", []):
@@ -35,7 +34,7 @@ def main(screen_titles, TitlePrompt, screen_abstracts, AbstractPrompt, row_index
             abstract_text = " ".join(str(abstract) for abstract in article["MedlineCitation"]["Article"]["Abstract"]["AbstractText"])
         
         insert("Initial", {"pmid": pmid, "title": title, "abstract": abstract_text}, ENSURE, False)
-    
+    create_excel_from_db()
     # Step 3: Screen titles
     if screen_titles == 1:
         all_screened_titles = []
@@ -137,7 +136,6 @@ def main(screen_titles, TitlePrompt, screen_abstracts, AbstractPrompt, row_index
     delete_all_data(ENSURE)
 
 if __name__ == "__main__":
-    create_excel_from_db()
     Prompts = pd.read_excel("Prompts.xlsx")
     
     for Index, CurrentPrompt in Prompts.iterrows():
