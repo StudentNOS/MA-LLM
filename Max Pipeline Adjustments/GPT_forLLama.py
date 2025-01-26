@@ -71,7 +71,7 @@ def generate_prompt(data, decision, manual):
     else:
         raise ValueError("Invalid decision parameter")
 
-    prompt = manual
+    prompt = str(manual)
     prompt += f"\n\nList of {data_type} for screening:\n"
     prompt += formatted_data
     
