@@ -1,0 +1,114 @@
+---
+title: "Statistical analysis Ensure"
+output: html_document
+date: "2025-01-07"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#library(readr)
+library(readxl)
+library(lme4)
+library(simr)
+library(mixedpower)
+```
+
+## Load data
+
+```{r}
+#setwd("~/Code/ensure") # set working directory to git repo
+Prompts <- read_excel("ENSURE_Data.xlsx")
+data <- Prompts
+```
+
+## Preprocessing
+
+```{r}
+# Change col names
+data.table::setnames(data, c("Words", "Section Reference", "Meta-Analysis Info"), c("words", "section_reference", "meta_analysis_info"))
+
+# Long format?
+```
+
+```{r}
+# Calculate F1 score with a 2:1 ratio for sensitivity
+data$f_score_2_1 <- 
+  # F score for abstract or title screening
+  ifelse(data$screen_titles == 1, 
+         (1+2^2) * (data$PPV_titles*data$sensitivity_titles)/((2^2*data$PPV_titles) + data$sensitivity_titles),
+         (1+2^2) * (data$PPV_abstracts*data$sensitivity_abstracts)/((2^2*data$PPV_abstracts) + data$sensitivity_abstracts))
+
+```
+
+
+## Descriptive analysis
+
+```{r}
+plot(data$f_score_2_1)
+hist(data$f_score_2_1)
+```
+
+## Linear mixed model
+
+```{r}
+mod_all_lm <- lm(f_score_2_1 ~ section_reference + meta_analysis_info + screen_titles, data = data)
+mod_all_rintercept <- lmer(f_score_2_1 ~ section_reference + screen_titles + meta_analysis_info + words + (1|MA), data = data)
+summary(mod_all_rintercept)
+mod_test <- lmerTest::lmer(f_score_2_1 ~ words + section_reference + meta_analysis_info + screen_titles + (1|MA), data = data)
+summary(mod_test)
+```
+
+## Plots
+
+```{r}
+
+```
+
+
+## Annahmen
+
+## Output
+
+
+## Power analysis mixedpower
+
+```{r}
+power_all <- mixedpower(model = mod_all_rintercept, data = data,
+                        fixed_effects = c("words", "section_reference", "meta_analysis_info", "screen_titles"),
+                        simvar = "MA", steps = c(5, 10),
+                        critical_value = 2, n_sim = 1000)
+power_all
+```
+
+
+## Power analysis simr
+
+```{r}
+fixef(mod_all_rintercept)["meta_analysis_infoFor MA"]
+fixef(mod_all_rintercept)["meta_analysis_infoFor MA"] <- -0.05
+```
+
+```{r}
+powerSim(mod_all_rintercept)
+```
+
+```{r}
+# Increase sample size
+
+mod_all_rintercept_2 <- extend(mod_all_rintercept, within="MA", n=600)
+mod_all_rintercept_3 <- extend(mod_all_rintercept_2, along = "MA", n=10)
+
+
+powerSim(mod_all_rintercept_3)
+
+
+
+pc2 <- powerCurve(mod_all_rintercept_2)
+
+print(pc2)
+
+```
+
