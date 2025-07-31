@@ -10,10 +10,14 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 #library(readr)
+library(dplyr)
+library(tidyr)
 library(readxl)
 library(lme4)
 library(simr)
 library(mixedpower)
+library(ggplot2)
+library(sjPlot)
 ```
 
 ## Load data
@@ -51,6 +55,121 @@ plot(data$f_score_2_1)
 hist(data$f_score_2_1)
 ```
 
+
+```{r}
+summary_stats <- data %>% # overview f scores grouped by meta-analysis
+  group_by(MA) %>%
+  summarise(
+    n_prompts = n(),
+    mean_f_score = mean(f_score_2_1, na.rm = TRUE),
+    sd_f_score = sd(f_score_2_1, na.rm = TRUE),
+    median_f_score = median(f_score_2_1, na.rm = TRUE),
+    min_f_score = min(f_score_2_1, na.rm = TRUE),
+    max_f_score = max(f_score_2_1, na.rm = TRUE),
+    .groups = 'drop'
+  )
+summary_stats
+```
+
+### Plots
+
+```{r}
+# f score distribution
+ggplot(data, aes(x = factor(MA), y = f_score_2_1, fill = factor(MA))) +
+  geom_boxplot(alpha = 0.7) +
+  geom_jitter(width = 0.2, alpha = 0.5) +
+  labs(title = "F-Score Distribution by Meta-Analysis",
+       x = "Meta-Analysis", y = "F-Score") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none")
+
+```
+
+```{r}
+# Confusion heat map for titles
+
+confusion_heatmap_titles <- data %>%
+  select(MA, tp_titles, fp_titles, tn_titles, fn_titles) %>%
+  pivot_longer(cols = c(tp_titles, fp_titles, tn_titles, fn_titles),
+               names_to = "confusion_type", values_to = "count") %>%
+  mutate(
+    predicted = case_when(
+      confusion_type %in% c("tp_titles", "fp_titles") ~ "Positive",
+      confusion_type %in% c("tn_titles", "fn_titles") ~ "Negative"
+    ),
+    actual = case_when(
+      confusion_type %in% c("tp_titles", "fn_titles") ~ "Positive", 
+      confusion_type %in% c("fp_titles", "tn_titles") ~ "Negative"
+    ),
+    # Create labels for better readability
+    cell_label = case_when(
+      confusion_type == "tp_titles" ~ "TP",
+      confusion_type == "fp_titles" ~ "FP", 
+      confusion_type == "tn_titles" ~ "TN",
+      confusion_type == "fn_titles" ~ "FN"
+    )
+  )
+
+confusion_heatmap_titles <- confusion_heatmap_titles[complete.cases(confusion_heatmap_titles),]
+
+ggplot(confusion_heatmap_titles, aes(x = predicted, y = actual, fill = count)) +
+  geom_tile(color = "white", linewidth = 0.5) +
+  geom_text(aes(label = paste0(cell_label, "\n")), 
+            color = "white", size = 3, fontface = "bold") +
+  facet_wrap(~MA, scales = "free") +
+  scale_fill_gradient(low = "lightblue", high = "darkblue", name = "Count") +
+  labs(title = "Confusion Matrix Heatmap Titles by Meta-Analysis",
+       x = "Predicted", y = "Actual") +
+  theme_minimal() +
+  theme(
+    axis.text = element_text(size = 10),
+    strip.text = element_text(size = 10, face = "bold")
+  )
+
+# Confusion heat map abstracts
+confusion_heatmap_abstracts <- data %>%
+  select(MA, tp_abstracts, fp_abstracts, tn_abstracts, fn_abstracts) %>%
+  pivot_longer(cols = c(tp_abstracts, fp_abstracts, tn_abstracts, fn_abstracts),
+               names_to = "confusion_type", values_to = "count") %>%
+  mutate(
+    predicted = case_when(
+      confusion_type %in% c("tp_abstracts", "fp_abstracts") ~ "Positive",
+      confusion_type %in% c("tn_abstracts", "fn_abstracts") ~ "Negative"
+    ),
+    actual = case_when(
+      confusion_type %in% c("tp_abstracts", "fn_abstracts") ~ "Positive", 
+      confusion_type %in% c("fp_abstracts", "tn_abstracts") ~ "Negative"
+    ),
+    # Create labels for better readability
+    cell_label = case_when(
+      confusion_type == "tp_abstracts" ~ "TP",
+      confusion_type == "fp_abstracts" ~ "FP", 
+      confusion_type == "tn_abstracts" ~ "TN",
+      confusion_type == "fn_abstracts" ~ "FN"
+    )
+  )
+
+confusion_heatmap_abstracts <- confusion_heatmap_abstracts[complete.cases(confusion_heatmap_abstracts),]
+
+ggplot(confusion_heatmap_abstracts, aes(x = predicted, y = actual, fill = count)) +
+  geom_tile(color = "white", linewidth = 0.5) +
+  geom_text(aes(label = paste0(cell_label, "\n")), 
+          color = ifelse(confusion_heatmap_titles$count > median(confusion_heatmap_titles$count, na.rm = TRUE), 
+                        "white", "black"), size = 3, fontface = "bold") +
+  facet_wrap(~MA, scales = "free") +
+  scale_fill_gradient(low = "lightblue", high = "darkblue", name = "Count") +
+  labs(title = "Confusion Matrix Heatmap Abstracts by Meta-Analysis",
+       x = "Predicted", y = "Actual") +
+  theme_minimal() +
+  theme(
+    axis.text = element_text(size = 10),
+    strip.text = element_text(size = 10, face = "bold")
+  )
+
+```
+
+
 ## Linear mixed model
 
 ```{r}
@@ -61,16 +180,39 @@ mod_test <- lmerTest::lmer(f_score_2_1 ~ words + section_reference + meta_analys
 summary(mod_test)
 ```
 
-## Plots
+```{r}
+# Conf intervals
+confint(mod_all_rintercept, method = "Wald")
+```
+
+
+### Plots
 
 ```{r}
+plot_model(mod_all_rintercept, type = "est", show.values = TRUE, 
+           title = "Fixed Effects Estimates")
+
+# Plot random effects (random intercepts by MA)
+plot_model(mod_all_rintercept, type = "re", show.values = TRUE,
+           title = "Random Intercepts by Meta-Analysis")
+
+# Predicted vs observed values
+data$predicted <- predict(mod_all_rintercept)
+
+ggplot(data, aes(x = predicted, y = f_score_2_1)) +
+  geom_point(aes(color = factor(MA)), alpha = 0.6) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed") +
+  labs(title = "Predicted vs Observed F-Scores",
+       x = "Predicted F-Score", y = "Observed F-Score",
+       color = "Meta-Analysis") +
+  theme_minimal()
 
 ```
 
 
-## Annahmen
+### Annahmen
 
-## Output
+### Output
 
 
 ## Power analysis mixedpower
