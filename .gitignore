@@ -1,2 +1,68 @@
-__pycache__
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.venv/
+venv/
+env/
+ENV/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Operating System
 .DS_Store
+Thumbs.db
+
+# Sensitive Configuration
+3_pipeline/PATHS.py
+config.py
+*.env
+.env
+
+# API Keys and Credentials
+*api_key*
+*secret*
+*password*
+
+# Data files (exclude large datasets)
+*.sqlite
+*.db
+*.log
+
+# Generated outputs
+3_pipeline/GPT_Selected_*.txt
+3_pipeline/PubMed_Data.xlsx
+3_pipeline/Screening_*.png
+3_pipeline/Screening_*.xlsx
+
+# R specific
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+*.Rproj
+
+# Statistical outputs
+4_statisticalanalyses/*.html
+4_statisticalanalyses/*.pdf
+4_statisticalanalyses/*_files/
+
+# Backup and temporary files
+*~
+*.bak
+*.tmp
+*.temp
+
+# Documentation builds
+docs/_build/
+site/

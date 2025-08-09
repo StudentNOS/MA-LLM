@@ -23,7 +23,8 @@ library(sjPlot)
 ## Load data
 
 ```{r}
-#setwd("~/Code/ensure") # set working directory to git repo
+# Set working directory to the statistical analyses folder
+# setwd("4_statisticalanalyses") # Uncomment and adjust if needed
 Prompts <- read_excel("ENSURE_Data.xlsx")
 data <- Prompts
 ```
