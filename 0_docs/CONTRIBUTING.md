@@ -55,7 +55,6 @@ Documentation contributions are always welcome:
    python -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    pip install -r requirements.txt
-   pip install -r requirements-dev.txt  # If available
    ```
 
 3. **Create a feature branch**
@@ -131,8 +130,7 @@ Add support for custom batch sizes
 
 3. **Update documentation**
    - Update relevant documentation files
-   - Add docstrings to new functions
-   - Update CHANGELOG.md if applicable
+   - Add docstrings to new functionss
 
 4. **Submit pull request**
    - Create pull request from your feature branch

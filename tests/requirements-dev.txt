@@ -1,0 +1,27 @@
+# Development and testing dependencies for ENSURE
+# Install with: pip install -r requirements-dev.txt
+
+# Testing framework
+pytest>=7.0.0
+pytest-cov>=4.0.0
+pytest-mock>=3.8.0
+
+# Code quality tools
+black>=22.0.0
+flake8>=5.0.0
+mypy>=0.991
+isort>=5.10.0
+
+# Documentation tools
+sphinx>=5.0.0
+sphinx-rtd-theme>=1.0.0
+
+# Development utilities
+ipython>=8.0.0
+jupyter>=1.0.0
+pre-commit>=2.20.0
+
+# Additional testing utilities
+responses>=0.22.0  # For mocking HTTP requests
+factory-boy>=3.2.0  # For test data generation
+freezegun>=1.2.0   # For mocking time/dates

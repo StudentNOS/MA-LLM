@@ -2,7 +2,7 @@
 
 ## Overview
 
-ENSURE (Efficient aNd Scalable sUrvey REview) is a comprehensive research project designed to automate systematic review processes using Large Language Models (LLMs). This repository contains the complete pipeline for automated literature screening, prompt engineering, and statistical analysis used in our medical research publication.
+ENSURE is a comprehensive research project designed to automate systematic review processes using Large Language Models (LLMs). This repository contains the complete pipeline for automated literature screening, prompt engineering, and statistical analysis used in our medical research publication.
 
 ## Project Structure
 
