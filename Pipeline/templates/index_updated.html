@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced LLM Screening Tool</title>
+    <style>
+        body { font-family: sans-serif; line-height: 1.6; margin: 2em; background-color: #f4f4f4; }
+        .container { max-width: 800px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        h1, h2 { color: #333; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], input[type="file"], select, textarea { 
+            width: 100%; 
+            padding: 8px; 
+            border: 1px solid #ddd; 
+            border-radius: 4px; 
+            box-sizing: border-box; 
+        }
+        button { background-color: #007bff; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin-right: 10px; }
+        button:hover { background-color: #0056b3; }
+        button#stop-btn { background-color: #dc3545; }
+        button#stop-btn:hover { background-color: #c82333; }
+        #status-container { margin-top: 20px; padding: 10px; background: #e9ecef; border-radius: 4px; }
+        #results-link button { background-color: #28a745; }
+        #results-link button:hover { background-color: #218838; }
+        .mode-container { 
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Enhanced LLM Screening Tool</h1>
+        
+        <form id="screening-form" enctype="multipart/form-data">
+            <h2>1. Konfiguration</h2>
+            <div class="form-group">
+                <label for="entrez_email">Entrez Email: <span title="Geben Sie Ihre Entrez Email-Adresse ein, die für PubMed-Abfragen erforderlich ist." style="cursor: help; color: #007bff;">?</span></label>
+                <input type="text" id="entrez_email" name="entrez_email" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="ai_model">AI Model: <span title="Geben Sie den genauen Modellnamen ein (z.B. 'groq-llama3', 'openai-gpt4', 'openai-gpt35', 'anthropic-claude', 'google-gemini'). Unterstützte Anbieter: Groq, OpenAI, Anthropic, Google. Bei unbekannten Modellen erhalten Sie eine Fehlermeldung." style="cursor: help; color: #007bff;">?</span></label>
+                <input type="text" id="ai_model" name="ai_model" required placeholder="z.B. groq-llama3, openai-gpt4, etc.">
+                <small style="color: #666; font-size: 0.9em;">Unterstützt: groq-llama3, openai-gpt4, openai-gpt35, anthropic-claude, google-gemini</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="api_key">API Key: <span title="Geben Sie den API-Key für das ausgewählte KI-Modell ein. Dieser wird für die Kommunikation mit der KI verwendet." style="cursor: help; color: #007bff;">?</span></label>
+                <input type="text" id="api_key" name="api_key" required>
+            </div>
+
+            <h2>2. Screening Mode</h2>
+            <div class="form-group">
+                <label for="screening_mode">Screening Mode: <span title="Wählen Sie den Screening-Modus: Goldstandard Comparison für Vergleich mit bekannten Ergebnissen oder Freeform Search für eine neue Suche." style="cursor: help; color: #007bff;">?</span></label>
+                <select id="screening_mode" name="screening_mode" required>
+                    <option value="">Select Screening Mode</option>
+                    <option value="goldstandard">Goldstandard Comparison</option>
+                    <option value="freeform">Freeform Search</option>
+                </select>
+            </div>
+
+            <!-- Goldstandard Mode Container -->
+            <div id="goldstandard_container" class="mode-container hidden">
+                <h3>Goldstandard Comparison Files</h3>
+                <div class="form-group">
+                    <label for="initial_file">Initial PMIDs (.txt): <span title="Laden Sie eine .txt-Datei mit den PMIDs der Artikel hoch, die gescreent werden sollen." style="cursor: help; color: #007bff;">?</span></label>
+                    <input type="file" id="initial_file" name="initial_file" accept=".txt">
+                </div>
+                <div class="form-group">
+                    <label for="goldstandard_file">Goldstandard PMIDs (.txt): <span title="Laden Sie eine .txt-Datei mit den PMIDs der bekannten relevanten Artikel hoch." style="cursor: help; color: #007bff;">?</span></label>
+                    <input type="file" id="goldstandard_file" name="goldstandard_file" accept=".txt">
+                </div>
+                <div class="form-group">
+                    <label for="prompts_file">Prompts (.xlsx): <span title="Laden Sie eine .xlsx-Datei mit den Prompts für das Screening hoch." style="cursor: help; color: #007bff;">?</span></label>
+                    <input type="file" id="prompts_file" name="prompts_file" accept=".xlsx">
+                </div>
+            </div>
+
+            <!-- Freeform Search Container -->
+            <div id="freeform_container" class="mode-container hidden">
+                <h3>Freeform Search Configuration</h3>
+                <div class="form-group">
+                    <label for="pubmed_search">PubMed Search Query: <span title="Geben Sie eine Suchanfrage für PubMed ein, z.B. 'cancer therapy'." style="cursor: help; color: #007bff;">?</span></label>
+                    <textarea id="pubmed_search" name="pubmed_search" rows="3" placeholder="Enter your PubMed search query"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="screening_prompt">Screening Prompt: <span title="Beschreiben Sie die Kriterien, nach denen die Artikel gescreent werden sollen." style="cursor: help; color: #007bff;">?</span></label>
+                    <textarea id="screening_prompt" name="screening_prompt" rows="3" placeholder="Enter your screening criteria"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Screening Level: <span title="Wählen Sie, ob nur Titel, nur Abstracts oder sequenziell Titel dann Abstracts gescreent werden sollen." style="cursor: help; color: #007bff;">?</span></label>
+                    <div>
+                        <input type="radio" id="screen_titles" name="screen_level" value="titles" checked>
+                        <label for="screen_titles">Titles Only</label>
+                        <input type="radio" id="screen_abstracts" name="screen_level" value="abstracts">
+                        <label for="screen_abstracts">Abstracts Only</label>
+                        <input type="radio" id="screen_sequential" name="screen_level" value="sequential">
+                        <label for="screen_sequential">Titles then Abstracts (Sequential)</label>
+                    </div>
+                </div>
+            </div>
+
+            <h2>3. Start Process</h2>
+            <button type="submit" id="start-btn">Start Screening</button>
+        </form>
+
+        <div id="status-container">
+            <strong>Status:</strong> <span id="status-text">Idle</span>
+        </div>
+        
+        <div id="controls" style="margin-top: 20px;">
+            <button id="stop-btn" style="display:none;">Stop Process</button>
+            <button id="export-intermediate-btn" style="display:none;">Export Intermediate Results</button>
+            <a href="/results" id="results-link" style="display:none;"><button type="button">Download Results</button></a>
+        </div>
+    </div>
+
+    <script>
+        // Model-specific API key validation patterns
+        const apiKeyPatterns = {
+            'groq-llama3': /^gsk_[A-Za-z0-9]{48}$/,
+            'openai-gpt4': /^sk-[A-Za-z0-9]{48}$/,
+            'openai-gpt35': /^sk-[A-Za-z0-9]{48}$/,
+            'anthropic-claude': /^sk-ant-[A-Za-z0-9]{32}$/,
+            'google-gemini': /^[A-Za-z0-9_-]{39}$/
+        };
+
+        // UI Elements
+        const form = document.getElementById('screening-form');
+        const statusText = document.getElementById('status-text');
+        const stopBtn = document.getElementById('stop-btn');
+        const resultsLink = document.getElementById('results-link');
+        const startBtn = document.getElementById('start-btn');
+        const exportIntermediateBtn = document.getElementById('export-intermediate-btn');
+        const screeningMode = document.getElementById('screening_mode');
+        const goldstandardContainer = document.getElementById('goldstandard_container');
+        const freeformContainer = document.getElementById('freeform_container');
+        const aiModelSelect = document.getElementById('ai_model');
+        const apiKeyInput = document.getElementById('api_key');
+
+        let statusInterval;
+
+        // Event Listeners
+        screeningMode.addEventListener('change', function() {
+            goldstandardContainer.classList.add('hidden');
+            freeformContainer.classList.add('hidden');
+            
+            if (this.value === 'goldstandard') {
+                goldstandardContainer.classList.remove('hidden');
+                setRequiredFields('goldstandard');
+            } else if (this.value === 'freeform') {
+                freeformContainer.classList.remove('hidden');
+                setRequiredFields('freeform');
+            }
+        });
+
+        aiModelSelect.addEventListener('input', function() {
+            validateInputs();
+        });
+
+        apiKeyInput.addEventListener('input', function() {
+            validateInputs();
+        });
+
+        function validateInputs() {
+            const model = aiModelSelect.value.trim();
+            const apiKey = apiKeyInput.value.trim();
+
+            const isValid = model && apiKey;
+            startBtn.disabled = !isValid;
+        }
+
+        function setRequiredFields(mode) {
+            // Reset all form fields
+            const allInputs = form.querySelectorAll('input[type="file"], textarea');
+            allInputs.forEach(input => {
+                input.required = false;
+            });
+
+            // Set required fields based on mode
+            if (mode === 'goldstandard') {
+                form.querySelector('#initial_file').required = true;
+                form.querySelector('#goldstandard_file').required = true;
+                form.querySelector('#prompts_file').required = true;
+            } else if (mode === 'freeform') {
+                form.querySelector('#pubmed_search').required = true;
+                form.querySelector('#screening_prompt').required = true;
+            }
+        }
+
+        form.addEventListener('submit', function(event) {
+            event.preventDefault();
+            
+            const formData = new FormData(form);
+            const mode = formData.get('screening_mode');
+            const endpoint = mode === 'goldstandard' ? '/run_comparison' : '/run_freeform';
+            
+            // UI updates for process start
+            startBtn.disabled = true;
+            stopBtn.style.display = 'inline-block';
+            exportIntermediateBtn.style.display = 'inline-block';
+            resultsLink.style.display = 'none';
+            statusText.textContent = 'Starting...';
+
+            fetch(endpoint, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'started') {
+                    statusInterval = setInterval(getStatus, 2000);
+                } else {
+                    resetUI();
+                    statusText.textContent = 'Error starting process.';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                resetUI();
+                statusText.textContent = 'Submission failed.';
+            });
+        });
+
+        function getStatus() {
+            fetch('/status')
+            .then(response => response.json())
+            .then(data => {
+                statusText.textContent = data.status;
+                if (data.status.toLowerCase().includes('completed')) {
+                    clearInterval(statusInterval);
+                    resetUI(true);
+                    setTimeout(() => {
+                        resultsLink.querySelector('button').click();
+                    }, 1000);
+                } else if (data.status.toLowerCase().includes('stopped')) {
+                    clearInterval(statusInterval);
+                    resetUI(true);
+                }
+            });
+        }
+
+        stopBtn.addEventListener('click', function() {
+            fetch('/stop', { method: 'POST' });
+            stopBtn.disabled = true;
+            statusText.textContent = 'Stopping...';
+        });
+
+        exportIntermediateBtn.addEventListener('click', function() {
+            fetch('/export_intermediate')
+            .then(response => response.blob())
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'intermediate_results.xlsx';
+                a.click();
+                window.URL.revokeObjectURL(url);
+            });
+        });
+
+        function resetUI(showResults = false) {
+            startBtn.disabled = false;
+            stopBtn.style.display = 'none';
+            exportIntermediateBtn.style.display = 'none';
+            stopBtn.disabled = false;
+            if (showResults) {
+                resultsLink.style.display = 'inline-block';
+            }
+        }
+    </script>
+</body>
+</html>
