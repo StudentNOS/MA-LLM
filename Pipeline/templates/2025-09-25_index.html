@@ -185,7 +185,7 @@
                 </div>
                 <div class="form-group">
                     <label for="screening_prompt">Screening Prompt: <button type="button" class="help-btn" onclick="showModal('prompt-modal')">?</button></label>
-                    <textarea id="screening_prompt" name="screening_prompt" rows="3" placeholder="Describe the criteria for screening articles"></textarea>
+                    <textarea id="screening_prompt" name="screening_prompt" rows="3" placeholder="Specify the prompt that will be used to screen articles"></textarea>
                     <div class="error-message" id="prompt-error"></div>
                 </div>
                 <div class="form-group">
@@ -356,7 +356,7 @@
         <div class="modal-content">
             <span class="close" onclick="closeModal('max-modal')">&times;</span>
             <h3>Max Articles</h3>
-            <p>Maximum number of articles to retrieve from PubMed (1-1000). More articles provide comprehensive results but take longer to process.</p>
+            <p>Maximum number of articles to retrieve from PubMed. More articles provide comprehensive results but take longer to process.</p>
             <p><strong>Recommendation:</strong> Start with 100-200 for testing, then increase as needed.</p>
         </div>
     </div>
@@ -365,7 +365,7 @@
         <div class="modal-content">
             <span class="close" onclick="closeModal('prompt-modal')">&times;</span>
             <h3>Screening Prompt</h3>
-            <p>Describe the criteria for determining if an article is relevant. Be specific about inclusion and exclusion criteria.</p>
+            <p>Specify the prompt that the Large Language Model (LLM) will use to screen articles (e.g., more general, including specific selection criteria, or the topic of your meta-analysis).</p>
             <p><strong>Examples:</strong></p>
             <ul>
                 <li>"Include articles about randomized controlled trials of new cancer drugs. Exclude case studies and reviews."</li>
