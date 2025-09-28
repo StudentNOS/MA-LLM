@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MALLM - Medical Article Language Learning Model</title>
+    <title>MA-LLM</title>
     <style>
         body { font-family: sans-serif; line-height: 1.6; margin: 2em; background-color: #f4f4f4; }
         .container { max-width: 800px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
@@ -104,9 +104,10 @@
 </head>
 <body>
     <div class="container">
-        <h1>MALLM - Medical Article Language Learning Model</h1>
-        <p>AI-powered screening tool for PubMed articles with robust error handling and retry logic.</p>
-        
+        <h1>MA-LLM</h1>
+        <p>AI-powered screening tool to select papers for meta-analysis: 
+            comparison with manual screening or comparison-free selection.
+        </p>
         <form id="screening-form" enctype="multipart/form-data">
             <h2>1. Configuration</h2>
             <div class="form-group">
@@ -143,15 +144,15 @@
             <div class="form-group">
                 <label for="screening_mode">Screening Mode: <button type="button" class="help-btn" onclick="showModal('mode-modal')">?</button></label>
                 <select id="screening_mode" name="screening_mode" required>
-                    <option value="">Select Screening Mode</option>
-                    <option value="goldstandard">Gold Standard Comparison</option>
-                    <option value="freeform">Freeform Search</option>
+                    <option value="">Specify Screening Mode</option>
+                    <option value="goldstandard">Screening Selection Comparison</option>
+                    <option value="freeform">Comparison-free Screening</option>
                 </select>
             </div>
 
             <!-- Gold Standard Mode Container -->
             <div id="goldstandard_container" class="mode-container hidden">
-                <h3>Gold Standard Comparison Files</h3>
+                <h3>Screening Selection Comparison Files</h3>
                 <div class="form-group">
                     <label for="initial_file">Initial PMIDs (.txt): <button type="button" class="help-btn" onclick="showModal('initial-modal')">?</button></label>
                     <input type="file" id="initial_file" name="initial_file" accept=".txt">
@@ -171,7 +172,7 @@
 
             <!-- Freeform Search Container -->
             <div id="freeform_container" class="mode-container hidden">
-                <h3>Freeform Search Configuration</h3>
+                <h3>Comparison-free Screening Configuration</h3>
                 <div class="form-group">
                     <label for="pubmed_search">PubMed Search Query: <button type="button" class="help-btn" onclick="showModal('search-modal')">?</button></label>
                     <textarea id="pubmed_search" name="pubmed_search" rows="3" placeholder="Enter your PubMed search query (e.g., 'cancer therapy')"></textarea>
@@ -227,7 +228,10 @@
         <div class="modal-content">
             <span class="close" onclick="closeModal('entrez-modal')">&times;</span>
             <h3>Entrez Email</h3>
-            <p>Your email address is required by the NCBI Entrez API for PubMed searches. This helps NCBI track usage and contact you if there are issues with your requests.</p>
+            <p>
+            Your email address is required by the NCBI Entrez API for PubMed searches. 
+            This helps NCBI track usage and contact you if there are issues with your requests. 
+            If you have not registered with an email address, you can do so under the: <a href="https://www.ncbi.nlm.nih.gov/home/develop/api/" target="_blank"> NCBI API registration page</a><p>
             <p><strong>Example:</strong> your.email@example.com</p>
         </div>
     </div>
@@ -283,8 +287,8 @@
             <h3>Screening Mode</h3>
             <p>Choose your screening approach:</p>
             <ul>
-                <li><strong>Gold Standard Comparison:</strong> Compare AI screening against known relevant articles to evaluate performance</li>
-                <li><strong>Freeform Search:</strong> Search PubMed and screen articles without a gold standard</li>
+                <li><strong>Screening Selection Comparison:</strong> Compare LLM-based selection with prior manual screening selection</li>
+                <li><strong>Comparison-free Screening:</strong> Search PubMed and screen articles without comparison to prior manual screening selection</li>
             </ul>
         </div>
     </div>
@@ -292,8 +296,8 @@
     <div id="initial-modal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeModal('initial-modal')">&times;</span>
-            <h3>Initial PMIDs (.txt) Format</h3>
-            <p>A plain text file (.txt) containing a list of PubMed PMIDs. Each PMID should be on its own line. Empty lines and comments are ignored.</p>
+            <h3>All Screened PMIDs (.txt) Format</h3>
+            <p>This document contains the PMIDs of all articles that were screened manually. It should be formated as plain text file (.txt) containing a list of PubMed PMIDs. Each PMID should be on its own line. Empty lines and comments are ignored.</p>
             <h4>Example:</h4>
             <pre>12345678
 23456789
@@ -305,8 +309,8 @@
     <div id="goldstandard-modal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeModal('goldstandard-modal')">&times;</span>
-            <h3>Gold Standard PMIDs (.txt) Format</h3>
-            <p>A plain text file (.txt) containing the list of known relevant PubMed PMIDs. Each PMID should be on its own line. Empty lines and comments are ignored.</p>
+            <h3>Finally Selected PMIDs (.txt) Format</h3>
+            <p>This document contains the PMIDs of all articles that were selected after manual screening. It should be formated as a plain text file (.txt) containing the list of known relevant PubMed PMIDs. Each PMID should be on its own line. Empty lines and comments are ignored.</p>
             <h4>Example:</h4>
             <pre>12345678
 34567890</pre>
@@ -323,6 +327,7 @@
                 <li><strong>AbstractPrompt:</strong> Prompt for screening based on abstracts</li>
                 <li><strong>screen_titles:</strong> 1 to screen titles, 0 to skip</li>
                 <li><strong>screen_abstracts:</strong> 1 to screen abstracts, 0 to skip</li>
+                <li>If both <strong>screen_titles</strong> and <strong>screen_abstracts</strong> are 1, screening is conducted sequentially</li>
             </ul>
             <h4>Example:</h4>
             <table border="1" style="border-collapse: collapse;">
