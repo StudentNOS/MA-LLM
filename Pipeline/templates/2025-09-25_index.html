@@ -221,6 +221,30 @@
             <button id="export-intermediate-btn" style="display:none;">Export Intermediate Results</button>
             <a href="/results" id="results-link" style="display:none;"><button type="button">Download Results</button></a>
         </div>
+
+        <div id="debug-container" style="margin-top: 30px;">
+            <h3>Debug Output <button type="button" class="help-btn" onclick="showModal('debug-modal')">?</button></h3>
+            <div style="margin-bottom: 10px;">
+                <button id="clear-debug-btn" onclick="clearDebugOutput()">Clear Output</button>
+                <button id="toggle-debug-btn" onclick="toggleDebugOutput()">Hide/Show</button>
+                <button id="toggle-auto-scroll-btn" onclick="toggleAutoScroll()">Auto-scroll: ON</button>
+            </div>
+            <div id="debug-content">
+                <textarea id="debug-output" style="
+                    width: 100%;
+                    height: 300px;
+                    font-family: 'Courier New', monospace;
+                    font-size: 12px;
+                    background-color: #000;
+                    color: #0f0;
+                    border: 2px solid #333;
+                    border-radius: 4px;
+                    padding: 10px;
+                    resize: vertical;
+                    overflow-y: auto;
+                " readonly placeholder="Debug messages and errors will appear here..."></textarea>
+            </div>
+        </div>
     </div>
 
     <!-- Help Modals -->
@@ -385,6 +409,22 @@
                 <li><strong>Abstracts Only:</strong> Screening based only on article abstracts</li>
                 <li><strong>Sequential:</strong> Screen titles first, then screen abstracts of selected titles</li>
             </ul>
+        </div>
+    </div>
+
+    <div id="debug-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('debug-modal')">&times;</span>
+            <h3>Debug Output</h3>
+            <p>This terminal-style output area displays real-time debugging messages, errors, and detailed information about the screening process. It's designed to help users without Python experience understand what's happening during the screening process.</p>
+            <ul>
+                <li><strong>Real-time Updates:</strong> Messages appear automatically as the process runs</li>
+                <li><strong>Auto-scroll:</strong> Automatically scrolls to show the latest messages</li>
+                <li><strong>Clear Output:</strong> Clear the debug area to remove old messages</li>
+                <li><strong>Hide/Show:</strong> Toggle visibility of the debug area</li>
+                <li><strong>Terminal Style:</strong> Black background with green text for easy reading</li>
+            </ul>
+            <p><strong>Debug messages include:</strong> API calls, processing status, error details, retry attempts, and screening progress information.</p>
         </div>
     </div>
 
@@ -555,13 +595,14 @@
             }
         }
 
-        form.addEventListener('submit', function(event) {
+        // Form submission handler
+        function handleFormSubmit(event) {
             event.preventDefault();
-            
+
             const formData = new FormData(form);
             const mode = formData.get('screening_mode');
             const endpoint = mode === 'goldstandard' ? '/run_comparison' : '/run_freeform';
-            
+
             // UI updates for process start
             startBtn.disabled = true;
             stopBtn.style.display = 'inline-block';
@@ -581,7 +622,12 @@
             })
             .then(data => {
                 if (data.status === 'started') {
-                    statusInterval = setInterval(getStatus, 2000);
+                    statusInterval = setInterval(handleStatusCheck, 2000);
+                    // Start polling for terminal output
+                    setTimeout(() => {
+                        updateDebugOutput();
+                        debugOutputInterval = setInterval(updateDebugOutput, 500);
+                    }, 1000);
                 } else {
                     resetUI();
                     statusText.textContent = 'Error starting process.';
@@ -592,21 +638,29 @@
                 resetUI();
                 statusText.textContent = `Submission failed: ${error.message}`;
             });
-        });
+        }
 
-        function getStatus() {
+        // Status checking function
+        function handleStatusCheck() {
             fetch('/status')
             .then(response => response.json())
             .then(data => {
                 statusText.textContent = data.status;
+
                 if (data.status.toLowerCase().includes('completed')) {
                     clearInterval(statusInterval);
+                    if (debugOutputInterval) {
+                        clearInterval(debugOutputInterval);
+                    }
                     resetUI(true);
                     setTimeout(() => {
                         resultsLink.querySelector('button').click();
                     }, 1000);
                 } else if (data.status.toLowerCase().includes('stopped')) {
                     clearInterval(statusInterval);
+                    if (debugOutputInterval) {
+                        clearInterval(debugOutputInterval);
+                    }
                     resetUI(true);
                 }
             })
@@ -616,7 +670,8 @@
             });
         }
 
-        stopBtn.addEventListener('click', function() {
+        // Stop button handler
+        function handleStopClick() {
             fetch('/stop', { method: 'POST' })
             .then(response => response.json())
             .then(data => {
@@ -627,7 +682,11 @@
                 console.error('Stop request failed:', error);
                 statusText.textContent = 'Stop request failed';
             });
-        });
+        }
+
+        // Event listeners
+        form.addEventListener('submit', handleFormSubmit);
+        stopBtn.addEventListener('click', handleStopClick);
 
         exportIntermediateBtn.addEventListener('click', function() {
             fetch('/export_intermediate')
@@ -675,6 +734,83 @@
                 event.target.style.display = 'none';
             }
         }
+
+        // Debug functionality variables
+        let debugContainer = document.getElementById('debug-container');
+        let debugOutput = document.getElementById('debug-output');
+        let autoScrollEnabled = true;
+
+        // Debug functionality functions
+        function addDebugMessage(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const formattedMessage = `[${timestamp}] ${message}\n`;
+
+            debugOutput.value += formattedMessage;
+            debugOutput.scrollTop = debugOutput.scrollHeight;
+
+            // Add visual distinction for different message types
+            if (type === 'error') {
+                debugOutput.style.color = '#ff6b6b';
+                setTimeout(() => {
+                    debugOutput.style.color = '#0f0';
+                }, 2000);
+            } else if (type === 'warning') {
+                debugOutput.style.color = '#ffd93d';
+                setTimeout(() => {
+                    debugOutput.style.color = '#0f0';
+                }, 2000);
+            } else if (type === 'terminal') {
+                // Terminal messages keep green color
+                debugOutput.style.color = '#0f0';
+            }
+        }
+
+        function clearDebugOutput() {
+            debugOutput.value = '';
+        }
+
+        function toggleDebugOutput() {
+            const debugContent = document.getElementById('debug-content');
+            const toggleBtn = document.getElementById('toggle-debug-btn');
+
+            if (debugContent.style.display === 'none') {
+                debugContent.style.display = 'block';
+                toggleBtn.textContent = 'Hide Debug';
+            } else {
+                debugContent.style.display = 'none';
+                toggleBtn.textContent = 'Show Debug';
+            }
+        }
+
+        function toggleAutoScroll() {
+            autoScrollEnabled = !autoScrollEnabled;
+            const button = document.getElementById('toggle-auto-scroll-btn');
+            if (autoScrollEnabled) {
+                button.textContent = 'Auto-scroll: ON';
+                debugOutput.scrollTop = debugOutput.scrollHeight;
+            } else {
+                button.textContent = 'Auto-scroll: OFF';
+            }
+        }
+
+        // Function to update debug output from terminal
+        function updateDebugOutput() {
+            fetch('/get_terminal_output')
+            .then(response => response.json())
+            .then(data => {
+                if (data.output && data.output.trim() !== debugOutput.value.trim()) {
+                    debugOutput.value = data.output;
+                    if (autoScrollEnabled) {
+                        debugOutput.scrollTop = debugOutput.scrollHeight;
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching terminal output:', error);
+            });
+        }
+
+
 
         // Initialize form validation on page load
         document.addEventListener('DOMContentLoaded', function() {

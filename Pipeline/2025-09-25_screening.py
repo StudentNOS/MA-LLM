@@ -6,6 +6,9 @@ import json
 import re
 import time
 import logging
+import sys
+import io
+import threading
 from typing import List, Dict, Tuple, Optional, Any
 from Bio import Entrez
 from groq import Groq
@@ -13,15 +16,15 @@ from openai import OpenAI
 from anthropic import Anthropic
 import google.generativeai as genai
 from ollama import Client as OllamaClient
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, Response
 import threading
 import webbrowser
+import queue
+import uuid
 
 
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+# Remove logging configuration - using print statements with timestamps instead
 
 app = Flask(__name__)
 
@@ -34,6 +37,173 @@ CURRENT_STATUS = 'idle'
 RESULTS_DF = pd.DataFrame()
 PROCESS_THREAD = None
 STOP_REQUESTED = False
+
+# Terminal output capture system
+TERMINAL_OUTPUT_QUEUE = queue.Queue()
+TERMINAL_CAPTURE_ACTIVE = False
+
+# Global variables for output redirection
+original_stdout = None
+original_stderr = None
+output_stream = None
+
+def setup_terminal_capture():
+    """
+    Set up terminal output capture to redirect stdout and stderr.
+    """
+    global original_stdout, original_stderr, output_stream, TERMINAL_CAPTURE_ACTIVE
+
+    if TERMINAL_CAPTURE_ACTIVE:
+        return  # Already set up
+
+    # Create a StringIO object to capture output
+    output_stream = io.StringIO()
+
+    # Save original stdout and stderr
+    original_stdout = sys.stdout
+    original_stderr = sys.stderr
+
+    # Redirect stdout and stderr to our StringIO object
+    sys.stdout = output_stream
+    sys.stderr = output_stream
+
+    TERMINAL_CAPTURE_ACTIVE = True
+    print("Terminal output capture started")
+
+def restore_terminal_output():
+    """
+    Restore original stdout and stderr.
+    """
+    global original_stdout, original_stderr, output_stream, TERMINAL_CAPTURE_ACTIVE
+
+    if not TERMINAL_CAPTURE_ACTIVE:
+        return  # Already restored
+
+    # Restore original stdout and stderr
+    sys.stdout = original_stdout
+    sys.stderr = original_stderr
+
+    TERMINAL_CAPTURE_ACTIVE = False
+    print("Terminal output capture stopped")
+
+def get_captured_output():
+    """
+    Get the current captured terminal output.
+
+    Returns:
+        str: The captured output content
+    """
+    if output_stream:
+        return output_stream.getvalue()
+    return ""
+
+def clear_captured_output():
+    """
+    Clear the captured output buffer.
+    """
+    if output_stream:
+        output_stream.seek(0)
+        output_stream.truncate(0)
+
+def start_output_monitoring():
+    """
+    Start a background thread to monitor and stream terminal output.
+    """
+    def monitor_output():
+        last_output_length = 0
+
+        while TERMINAL_CAPTURE_ACTIVE:
+            try:
+                current_output = get_captured_output()
+
+                if len(current_output) > last_output_length:
+                    # New output was added
+                    new_output = current_output[last_output_length:]
+
+                    # Split into lines and send each line
+                    lines = new_output.strip().split('\n')
+                    for line in lines:
+                        if line.strip():  # Only send non-empty lines
+                            timestamp = time.strftime('%H:%M:%S')
+                            formatted_message = {
+                                'timestamp': timestamp,
+                                'message': line.strip(),
+                                'type': 'terminal'
+                            }
+
+                            try:
+                                TERMINAL_OUTPUT_QUEUE.put_nowait(formatted_message)
+                            except queue.Full:
+                                # Remove oldest message if queue is full
+                                try:
+                                    TERMINAL_OUTPUT_QUEUE.get_nowait()
+                                    TERMINAL_OUTPUT_QUEUE.put_nowait(formatted_message)
+                                except queue.Empty:
+                                    pass
+
+                    last_output_length = len(current_output)
+
+                time.sleep(0.1)  # Check every 100ms
+
+            except Exception as e:
+                print(f"Error in output monitoring: {str(e)}")
+                break
+
+    monitor_thread = threading.Thread(target=monitor_output, daemon=True)
+    monitor_thread.start()
+    print("Output monitoring started")
+
+def get_debug_messages():
+    """
+    Generator function to stream debug messages to clients.
+    Now includes both debug messages and terminal output.
+
+    Yields:
+        str: JSON formatted debug messages
+    """
+    client_id = str(uuid.uuid4())
+
+    try:
+        # Send initial connection message
+        initial_message = {
+            'timestamp': time.strftime('%H:%M:%S'),
+            'message': f'Client {client_id[:8]} connected to debug stream',
+            'type': 'info'
+        }
+        yield f"data: {json.dumps(initial_message)}\n\n"
+
+        while True:
+            # Check for terminal output
+            try:
+                terminal_message = TERMINAL_OUTPUT_QUEUE.get_nowait()
+                yield f"data: {json.dumps(terminal_message)}\n\n"
+                continue
+            except queue.Empty:
+                pass
+
+            # No messages available, send heartbeat
+            try:
+                terminal_message = TERMINAL_OUTPUT_QUEUE.get(timeout=1.0)
+                yield f"data: {json.dumps(terminal_message)}\n\n"
+            except queue.Empty:
+                # Send heartbeat
+                heartbeat = {
+                    'timestamp': time.strftime('%H:%M:%S'),
+                    'message': 'heartbeat',
+                    'type': 'heartbeat'
+                }
+                yield f"data: {json.dumps(heartbeat)}\n\n"
+
+    except GeneratorExit:
+        # Client disconnected
+        pass
+    except Exception as e:
+        error_message = {
+            'timestamp': time.strftime('%H:%M:%S'),
+            'message': f'Stream error: {str(e)}',
+            'type': 'error'
+        }
+        yield f"data: {json.dumps(error_message)}\n\n"
 
 # Retry configuration
 MAX_RETRIES = 3
@@ -167,12 +337,12 @@ class AIModelClient:
                         error_msg += " - Please check your API key."
                     elif "model" in str(e).lower():
                         error_msg += " - The model might not be available."
-                    logger.error(f"Final attempt failed: {error_msg}")
+                    print(f"ERROR: Final attempt failed: {error_msg}")
                     raise Exception(error_msg)
-                
+
                 # Wait before retrying with exponential backoff
                 wait_time = RETRY_DELAY * (BACKOFF_FACTOR ** attempt)
-                logger.warning(f"Attempt {attempt + 1} failed, retrying in {wait_time}s: {str(e)}")
+                print(f"WARNING: Attempt {attempt + 1} failed, retrying in {wait_time}s: {str(e)}")
                 time.sleep(wait_time)
         
         # This should never be reached, but just in case
@@ -297,12 +467,12 @@ def fetch_articles_by_pmids(pmids: List[str], retries: int = MAX_RETRIES) -> Lis
             is_retryable = any(term in error_str for term in ['timeout', 'connection', 'server error'])
             
             if not is_retryable or attempt == retries:
-                logger.error(f"Failed to fetch articles after {retries + 1} attempts: {str(e)}")
+                print(f"ERROR: Failed to fetch articles after {retries + 1} attempts: {str(e)}")
                 raise Exception(f"Failed to fetch articles from PubMed: {str(e)}")
-            
+
             # Wait before retrying
             wait_time = RETRY_DELAY * (BACKOFF_FACTOR ** attempt)
-            logger.warning(f"Attempt {attempt + 1} failed, retrying in {wait_time}s: {str(e)}")
+            print(f"WARNING: Attempt {attempt + 1} failed, retrying in {wait_time}s: {str(e)}")
             time.sleep(wait_time)
     
     # This should never be reached
@@ -341,12 +511,12 @@ def search_pubmed(query: str, retmax: int = 100000, retries: int = MAX_RETRIES) 
             is_retryable = any(term in error_str for term in ['timeout', 'connection', 'server error'])
             
             if not is_retryable or attempt == retries:
-                logger.error(f"Failed to search PubMed after {retries + 1} attempts: {str(e)}")
+                print(f"ERROR: Failed to search PubMed after {retries + 1} attempts: {str(e)}")
                 raise Exception(f"Failed to search PubMed: {str(e)}")
-            
+
             # Wait before retrying
             wait_time = RETRY_DELAY * (BACKOFF_FACTOR ** attempt)
-            logger.warning(f"Attempt {attempt + 1} failed, retrying in {wait_time}s: {str(e)}")
+            print(f"WARNING: Attempt {attempt + 1} failed, retrying in {wait_time}s: {str(e)}")
             time.sleep(wait_time)
     
     # This should never be reached
@@ -392,7 +562,7 @@ def screen_articles(stage: str, prompt: str, ai_client: AIModelClient, screen_le
     global CURRENT_STATUS, STOP_REQUESTED
 
     results = []
-    logger.info(f"Starting screen_articles with stage={stage}, screen_level={screen_level}")
+    print(f"INFO: Starting screen_articles with stage={stage}, screen_level={screen_level}")
 
     with sqlite3.connect(DATABASE) as conn:
         cursor = conn.cursor()
@@ -402,7 +572,7 @@ def screen_articles(stage: str, prompt: str, ai_client: AIModelClient, screen_le
         )
         articles = cursor.fetchall()
         total = len(articles)
-        logger.info(f"Found {total} articles at stage {stage}")
+        print(f"INFO: Found {total} articles at stage {stage}")
 
         for i in range(0, total, batch_size):
             if STOP_REQUESTED:
@@ -422,7 +592,7 @@ def screen_articles(stage: str, prompt: str, ai_client: AIModelClient, screen_le
                 CURRENT_STATUS = base_status
                 
             batch = articles[i:i+batch_size]
-            logger.info(f"Processing batch {i//batch_size + 1} with {len(batch)} articles")
+            print(f"INFO: Processing batch {i//batch_size + 1} with {len(batch)} articles")
 
             if stage == 'initial' or screen_level == 'titles':
                 formatted_articles = [f"PMID: {pmid}\nTitle: {title}" for pmid, title, _ in batch]
@@ -444,22 +614,22 @@ def screen_articles(stage: str, prompt: str, ai_client: AIModelClient, screen_le
             )
 
             try:
-                logger.info("Sending batch to AI model for screening")
+                print("INFO: Sending batch to AI model for screening")
                 response_text = ai_client.generate_completion(full_prompt).strip()
 
-                logger.info(f"AI response received: '{response_text}'")
+                print(f"INFO: AI response received: '{response_text}'")
 
                 # Extract all potential PMIDs from the response using regex (7-9 digits)
                 extracted_pmids = re.findall(r'\b\d{7,9}\b', response_text)
-                logger.info(f"Extracted PMIDs from response: {extracted_pmids}")
+                print(f"INFO: Extracted PMIDs from response: {extracted_pmids}")
 
                 # Get the list of PMIDs in the current batch
                 batch_pmids = [pmid for pmid, _, _ in batch]
-                logger.info(f"Batch PMIDs: {batch_pmids}")
+                print(f"INFO: Batch PMIDs: {batch_pmids}")
 
                 # Only consider PMIDs that are actually in the batch
                 relevant_pmids = [pmid for pmid in extracted_pmids if pmid in batch_pmids]
-                logger.info(f"Relevant PMIDs (filtered): {relevant_pmids}")
+                print(f"INFO: Relevant PMIDs (filtered): {relevant_pmids}")
 
                 # Update database with results
                 for pmid, _, _ in batch:
@@ -471,20 +641,20 @@ def screen_articles(stage: str, prompt: str, ai_client: AIModelClient, screen_le
                     )
                     if relevant:
                         results.append(pmid)
-                        
-                logger.info(f"Batch results: {len([r for r in results if r in batch_pmids])} relevant articles")
+
+                print(f"INFO: Batch results: {len([r for r in results if r in batch_pmids])} relevant articles")
 
                 # Commit after successful processing
                 conn.commit()
-                logger.info("Database committed successfully")
+                print("INFO: Database committed successfully")
 
             except Exception as e:
-                logger.error(f"Error during screening: {str(e)}")
+                print(f"ERROR: Error during screening: {str(e)}")
                 CURRENT_STATUS = f"Error during screening: {str(e)}"
 
                 # Even on error, we need to advance the stage for these articles
                 # so they don't get stuck in the current stage
-                logger.warning("Advancing stage for batch articles despite error...")
+                print("WARNING: Advancing stage for batch articles despite error...")
                 for pmid, _, _ in batch:
                     next_stage = "titles" if stage == "initial" else "abstracts"
                     cursor.execute(
@@ -492,14 +662,14 @@ def screen_articles(stage: str, prompt: str, ai_client: AIModelClient, screen_le
                         (next_stage, pmid)
                     )
                 conn.commit()
-                logger.info("Database committed after error handling")
+                print("INFO: Database committed after error handling")
                 continue
 
             time.sleep(1)
 
         conn.commit()
 
-    logger.info(f"Total results for stage {stage}: {len(results)}")
+    print(f"INFO: Total results for stage {stage}: {len(results)}")
     return results
 
 def calculate_metrics(goldstandard: List[str], stage: str) -> Dict[str, float]:
@@ -519,8 +689,8 @@ def calculate_metrics(goldstandard: List[str], stage: str) -> Dict[str, float]:
     Returns:
         Dict[str, float]: Dictionary containing all calculated metrics
     """
-    logger.info(f"Calculating metrics for stage '{stage}'")
-    logger.info(f"Goldstandard PMIDs: {goldstandard}")
+    print(f"INFO: Calculating metrics for stage '{stage}'")
+    print(f"INFO: Goldstandard PMIDs: {goldstandard}")
 
     with sqlite3.connect(DATABASE) as conn:
         cursor = conn.cursor()
@@ -529,33 +699,33 @@ def calculate_metrics(goldstandard: List[str], stage: str) -> Dict[str, float]:
             (stage,)
         )
         data = cursor.fetchall()
-        
-    logger.info(f"Retrieved {len(data)} articles from database at stage '{stage}'")
+
+    print(f"INFO: Retrieved {len(data)} articles from database at stage '{stage}'")
 
     if not data:
-        logger.warning("No data found in database for this stage!")
+        print("WARNING: No data found in database for this stage!")
         return {
             'sensitivity': 0, 'specificity': 0, 'ppv': 0,
             'tp': 0, 'fp': 0, 'tn': 0, 'fn': 0
         }
 
     df = pd.DataFrame(data, columns=["pmid", "relevant"])
-    logger.info(f"DataFrame shape: {df.shape}")
-    logger.info(f"Relevant counts: {df['relevant'].value_counts().to_dict()}")
+    print(f"INFO: DataFrame shape: {df.shape}")
+    print(f"INFO: Relevant counts: {df['relevant'].value_counts().to_dict()}")
 
     # Debug: Show which PMIDs are in database vs goldstandard
     all_db_pmids = set(df['pmid'])
     gs_set = set(goldstandard)
-    logger.info(f"PMIDs in database: {sorted(all_db_pmids)}")
-    logger.info(f"PMIDs in goldstandard: {sorted(gs_set)}")
-    logger.info(f"Overlap (should be {len(gs_set)}): {len(all_db_pmids.intersection(gs_set))}")
-    logger.info(f"Missing from database: {gs_set.difference(all_db_pmids)}")
-    logger.info(f"Extra in database: {all_db_pmids.difference(gs_set)}")
+    print(f"INFO: PMIDs in database: {sorted(all_db_pmids)}")
+    print(f"INFO: PMIDs in goldstandard: {sorted(gs_set)}")
+    print(f"INFO: Overlap (should be {len(gs_set)}): {len(all_db_pmids.intersection(gs_set))}")
+    print(f"INFO: Missing from database: {gs_set.difference(all_db_pmids)}")
+    print(f"INFO: Extra in database: {all_db_pmids.difference(gs_set)}")
 
     screened_in = set(df[df['relevant'] == 1]['pmid'])
     screened_out = set(df[df['relevant'] == 0]['pmid'])
-    logger.info(f"Screened in (relevant=1): {sorted(screened_in)}")
-    logger.info(f"Screened out (relevant=0): {sorted(screened_out)[:10]}...")  # First 10 only
+    print(f"INFO: Screened in (relevant=1): {sorted(screened_in)}")
+    print(f"INFO: Screened out (relevant=0): {sorted(screened_out)[:10]}...")  # First 10 only
 
     tp = len(gs_set.intersection(screened_in))
     fp = len(screened_in.difference(gs_set))
@@ -563,14 +733,14 @@ def calculate_metrics(goldstandard: List[str], stage: str) -> Dict[str, float]:
     all_pmids = set(df['pmid'])
     tn = len(all_pmids.difference(gs_set).difference(screened_in))
 
-    logger.info(f"TP={tp}, FP={fp}, TN={tn}, FN={fn}")
-    logger.info(f"Goldstandard articles that were missed: {sorted(gs_set.intersection(screened_out))}")
+    print(f"INFO: TP={tp}, FP={fp}, TN={tn}, FN={fn}")
+    print(f"INFO: Goldstandard articles that were missed: {sorted(gs_set.intersection(screened_out))}")
 
     sensitivity = tp / (tp + fn) if (tp + fn) > 0 else 0
     specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
     ppv = tp / (tp + fp) if (tp + fp) > 0 else 0
 
-    logger.info("Final metrics - Sensitivity: {:.3f}, Specificity: {:.3f}, PPV: {:.3f}".format(sensitivity, specificity, ppv))
+    print("INFO: Final metrics - Sensitivity: {:.3f}, Specificity: {:.3f}, PPV: {:.3f}".format(sensitivity, specificity, ppv))
 
     return {
         'sensitivity': sensitivity,
@@ -610,14 +780,14 @@ def process_prompts(prompts_df: pd.DataFrame, initial_pmids: List[str], goldstan
     goldstandard_set = set(goldstandard_pmids)
     filtered_initial_pmids = [pmid for pmid in initial_pmids if pmid in goldstandard_set]
 
-    logger.info(f"Original initial_pmids count: {len(initial_pmids)}")
-    logger.info(f"Goldstandard_pmids count: {len(goldstandard_pmids)}")
-    logger.info(f"Filtered initial_pmids count: {len(filtered_initial_pmids)}")
-    logger.info(f"Filtered PMIDs: {filtered_initial_pmids}")
+    print(f"INFO: Original initial_pmids count: {len(initial_pmids)}")
+    print(f"INFO: Goldstandard_pmids count: {len(goldstandard_pmids)}")
+    print(f"INFO: Filtered initial_pmids count: {len(filtered_initial_pmids)}")
+    print(f"INFO: Filtered PMIDs: {filtered_initial_pmids}")
 
     # Fetch all articles from Initial.txt, regardless of goldstandard
     articles = fetch_articles_by_pmids(initial_pmids)
-    
+
     metric_names = ['sensitivity', 'specificity', 'ppv', 'tp', 'fp', 'tn', 'fn']
     output_columns = ['Final_Relevant_PMIDs']
     for prefix in ['title', 'abstract']:
@@ -626,37 +796,37 @@ def process_prompts(prompts_df: pd.DataFrame, initial_pmids: List[str], goldstan
 
     for col in output_columns:
         RESULTS_DF[col] = None
-        
+
     empty_metrics = {metric: None for metric in metric_names}
 
     for idx, row in RESULTS_DF.iterrows():
         if STOP_REQUESTED:
             CURRENT_STATUS = "Processing stopped by user"
             break
-            
+
         CURRENT_STATUS = f"Processing prompt set {idx+1}/{len(RESULTS_DF)}"
-        
+
         init_db()
         save_to_db(articles)
-        
-        logger.info(f"Processing prompt {idx+1}")
-        logger.info(f"screen_titles value: {row.get('screen_titles')}, type: {type(row.get('screen_titles'))}")
-        logger.info(f"screen_abstracts value: {row.get('screen_abstracts')}, type: {type(row.get('screen_abstracts'))}")
-        logger.info(f"TitlePrompt: {row.get('TitlePrompt')}")
-        logger.info(f"AbstractPrompt: {row.get('AbstractPrompt')}")
+
+        print(f"INFO: Processing prompt {idx+1}")
+        print(f"INFO: screen_titles value: {row.get('screen_titles')}, type: {type(row.get('screen_titles'))}")
+        print(f"INFO: screen_abstracts value: {row.get('screen_abstracts')}, type: {type(row.get('screen_abstracts'))}")
+        print(f"INFO: TitlePrompt: {row.get('TitlePrompt')}")
+        print(f"INFO: AbstractPrompt: {row.get('AbstractPrompt')}")
 
         # Convert to int for reliable comparison
         screen_titles_val = int(row['screen_titles']) if pd.notna(row.get('screen_titles')) else 0
         screen_abstracts_val = int(row['screen_abstracts']) if pd.notna(row.get('screen_abstracts')) else 0
 
         if screen_titles_val == 1:
-            logger.info("Screening titles...")
+            print("INFO: Screening titles...")
             screen_articles(stage='initial', prompt=row['TitlePrompt'], ai_client=ai_client,
                           current_prompt=idx, total_prompts=len(RESULTS_DF))
             title_metrics = calculate_metrics(goldstandard_pmids, 'titles')
-            logger.info(f"Title metrics: {title_metrics}")
+            print(f"INFO: Title metrics: {title_metrics}")
         else:
-            logger.info("Skipping title screening")
+            print("INFO: Skipping title screening")
             with sqlite3.connect(DATABASE) as conn:
                 conn.cursor().execute("UPDATE Articles SET stage = 'titles' WHERE stage = 'initial'")
                 conn.commit()
@@ -668,35 +838,35 @@ def process_prompts(prompts_df: pd.DataFrame, initial_pmids: List[str], goldstan
         if STOP_REQUESTED: break
 
         if screen_abstracts_val == 1:
-            logger.info("Screening abstracts...")
+            print("INFO: Screening abstracts...")
             screen_articles(stage='titles', prompt=row['AbstractPrompt'], ai_client=ai_client,
                           current_prompt=idx, total_prompts=len(RESULTS_DF))
             abstract_metrics = calculate_metrics(goldstandard_pmids, 'abstracts')
-            logger.info(f"Abstract metrics: {abstract_metrics}")
+            print(f"INFO: Abstract metrics: {abstract_metrics}")
         else:
-            logger.info("Skipping abstract screening")
+            print("INFO: Skipping abstract screening")
             abstract_metrics = empty_metrics.copy()
-        
+
         for metric, value in abstract_metrics.items():
             RESULTS_DF.at[idx, f'abstract_{metric}'] = value
-            
+
         with sqlite3.connect(DATABASE) as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT pmid FROM Articles WHERE relevant = 1")
             final_pmids_list = [item[0] for item in cursor.fetchall()]
             RESULTS_DF.at[idx, 'Final_Relevant_PMIDs'] = ",".join(final_pmids_list)
-            logger.info(f"Final relevant PMIDs for prompt {idx+1}: {final_pmids_list}")
+            print(f"INFO: Final relevant PMIDs for prompt {idx+1}: {final_pmids_list}")
 
         if STOP_REQUESTED: break
 
-    logger.info(f"Final RESULTS_DF shape: {RESULTS_DF.shape}")
-    logger.info(f"Final RESULTS_DF columns: {list(RESULTS_DF.columns)}")
-    logger.info("Final RESULTS_DF content:")
-    logger.info(RESULTS_DF.to_string())
+    print(f"INFO: Final RESULTS_DF shape: {RESULTS_DF.shape}")
+    print(f"INFO: Final RESULTS_DF columns: {list(RESULTS_DF.columns)}")
+    print("INFO: Final RESULTS_DF content:")
+    print(RESULTS_DF.to_string())
 
     output_path = "prompt_results.xlsx"
     RESULTS_DF.to_excel(output_path, index=False)
-    logger.info(f"Results saved to {output_path}")
+    print(f"INFO: Results saved to {output_path}")
 
     if STOP_REQUESTED:
         CURRENT_STATUS = f"Stopped! Partial results saved to {output_path}"
@@ -746,9 +916,28 @@ def process_freeform_search(pubmed_query: str, screening_prompt: str, screen_lev
     if screen_level == 'sequential':
         CURRENT_STATUS = "Screening titles..."
         screen_articles('initial', screening_prompt, ai_client, 'titles')
-        CURRENT_STATUS = "Screening abstracts of relevant titles..."
-        screen_articles('titles', screening_prompt, ai_client, 'abstracts')
-        # Get final relevant PMIDs
+
+        # For sequential screening, only process abstracts of articles that were
+        # marked as relevant in title screening (relevant = 1)
+        with sqlite3.connect(DATABASE) as conn:
+            cursor = conn.cursor()
+            # First, advance all articles to 'titles' stage
+            cursor.execute("UPDATE Articles SET stage = 'titles' WHERE stage = 'initial'")
+            # Then, only advance articles that were marked as relevant to 'abstracts' stage
+            cursor.execute("UPDATE Articles SET stage = 'abstracts' WHERE stage = 'titles' AND relevant = 1")
+            conn.commit()
+
+        # Count how many articles made it to abstract screening
+        with sqlite3.connect(DATABASE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM Articles WHERE stage = 'abstracts'")
+            abstracts_count = cursor.fetchone()[0]
+
+        if abstracts_count > 0:
+            CURRENT_STATUS = f"Screening abstracts of {abstracts_count} relevant titles..."
+            screen_articles('abstracts', screening_prompt, ai_client, 'abstracts')
+
+        # Get final relevant PMIDs (articles that passed both title and abstract screening)
         with sqlite3.connect(DATABASE) as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT pmid FROM Articles WHERE relevant = 1")
@@ -782,7 +971,7 @@ def index():
 def start_processing_thread(target_func, args_tuple):
     """
     Start a processing thread for long-running operations.
-    
+
     Args:
         target_func: Function to run in the thread
         args_tuple: Tuple of arguments to pass to the function
@@ -790,6 +979,7 @@ def start_processing_thread(target_func, args_tuple):
     global CURRENT_STATUS, PROCESS_THREAD, STOP_REQUESTED
     STOP_REQUESTED = False
     CURRENT_STATUS = "Starting screening process..."
+    print("Starting background processing thread")
     PROCESS_THREAD = threading.Thread(target=target_func, args=args_tuple)
     PROCESS_THREAD.start()
 
@@ -824,35 +1014,35 @@ def run_comparison():
     # Read and debug initial file
     initial_content = initial_file.read().decode('utf-8')
     initial_pmids = [line.strip() for line in initial_content.splitlines() if line.strip()]
-    logger.info("=== DEBUG: Initial.txt Content ===")
-    logger.info(f"Raw content length: {len(initial_content)}")
-    logger.info(f"First 500 chars: {initial_content[:500]}")
-    logger.info(f"Total PMIDs found: {len(initial_pmids)}")
-    logger.info(f"First 10 PMIDs: {initial_pmids[:10]}")
-    logger.info(f"Last 10 PMIDs: {initial_pmids[-10:] if len(initial_pmids) > 10 else initial_pmids}")
-    logger.info("===================================")
+    print("INFO: === DEBUG: Initial.txt Content ===")
+    print(f"INFO: Raw content length: {len(initial_content)}")
+    print(f"INFO: First 500 chars: {initial_content[:500]}")
+    print(f"INFO: Total PMIDs found: {len(initial_pmids)}")
+    print(f"INFO: First 10 PMIDs: {initial_pmids[:10]}")
+    print(f"INFO: Last 10 PMIDs: {initial_pmids[-10:] if len(initial_pmids) > 10 else initial_pmids}")
+    print("INFO: ================================")
 
     # Read and debug goldstandard file
     goldstandard_content = goldstandard_file.read().decode('utf-8')
     goldstandard_pmids = [line.strip() for line in goldstandard_content.splitlines() if line.strip()]
-    logger.info("=== DEBUG: Goldstandard_Selected.txt Content ===")
-    logger.info(f"Raw content length: {len(goldstandard_content)}")
-    logger.info(f"Full content: {goldstandard_content}")
-    logger.info(f"Total PMIDs found: {len(goldstandard_pmids)}")
-    logger.info(f"All PMIDs: {goldstandard_pmids}")
-    logger.info("================================================")
+    print("INFO: === DEBUG: Goldstandard_Selected.txt Content ===")
+    print(f"INFO: Raw content length: {len(goldstandard_content)}")
+    print(f"INFO: Full content: {goldstandard_content}")
+    print(f"INFO: Total PMIDs found: {len(goldstandard_pmids)}")
+    print(f"INFO: All PMIDs: {goldstandard_pmids}")
+    print("INFO: ================================================")
 
     # Read and debug prompts file
     prompts_df = pd.read_excel(prompts_file)
-    logger.info("=== DEBUG: Prompts.xlsx Content ===")
-    logger.info(f"Shape: {prompts_df.shape}")
-    logger.info(f"Columns: {list(prompts_df.columns)}")
-    logger.info(f"Data types:\n{prompts_df.dtypes}")
-    logger.info(f"screen_titles unique values: {prompts_df['screen_titles'].unique()}")
-    logger.info(f"screen_abstracts unique values: {prompts_df['screen_abstracts'].unique()}")
-    logger.info("\nFirst 3 rows:")
-    logger.info(prompts_df.head(3).to_string())
-    logger.info("===================================")
+    print("INFO: === DEBUG: Prompts.xlsx Content ===")
+    print(f"INFO: Shape: {prompts_df.shape}")
+    print(f"INFO: Columns: {list(prompts_df.columns)}")
+    print(f"INFO: Data types:\n{prompts_df.dtypes}")
+    print(f"INFO: screen_titles unique values: {prompts_df['screen_titles'].unique()}")
+    print(f"INFO: screen_abstracts unique values: {prompts_df['screen_abstracts'].unique()}")
+    print("INFO: First 3 rows:")
+    print(prompts_df.head(3).to_string())
+    print("INFO: ================================")
 
     ai_client = AIModelClient(ai_provider, ai_model, API_KEY)
 
@@ -944,7 +1134,7 @@ def get_results():
 def export_intermediate():
     """
     Export intermediate results during processing.
-    
+
     Returns:
         Excel file with current progress or fallback data
     """
@@ -981,93 +1171,52 @@ def export_intermediate():
         df.to_excel(output_path, index=False)
         return send_file(output_path, as_attachment=True)
 
-def test_pmid_extraction():
+@app.route('/debug_stream')
+def debug_stream():
     """
-    Test function to verify PMID extraction from AI responses.
-    
-    This function runs various test cases to ensure the regex-based PMID
-    extraction works correctly with different response formats.
-    """
-    logger.info("=== PMID Extraction Test ===")
+    Stream debug messages to the frontend.
 
-    # Test cases with different response formats
-    test_cases = [
-        {
-            "response": "12345678,23456789,34567890",
-            "batch_pmids": ["12345678", "23456789", "34567890", "45678901"],
-            "expected": ["12345678", "23456789", "34567890"]
-        },
-        {
-            "response": "The relevant PMIDs are: 12345678, 23456789 and 34567890",
-            "batch_pmids": ["12345678", "23456789", "34567890", "45678901"],
-            "expected": ["12345678", "23456789", "34567890"]
-        },
-        {
-            "response": "Based on the criteria, I found these relevant: 12345678,23456789",
-            "batch_pmids": ["12345678", "23456789", "34567890"],
-            "expected": ["12345678", "23456789"]
-        },
-        {
-            "response": "No relevant articles found.",
-            "batch_pmids": ["12345678", "23456789", "34567890"],
-            "expected": []
-        },
-        {
-            "response": "12345678, 99999999, 23456789",  # Contains invalid PMID
-            "batch_pmids": ["12345678", "23456789", "34567890"],
-            "expected": ["12345678", "23456789"]
-        }
-    ]
-
-    for i, test_case in enumerate(test_cases, 1):
-        logger.info(f"\nTest Case {i}:")
-        logger.info(f"Response: {test_case['response']}")
-        logger.info(f"Batch PMIDs: {test_case['batch_pmids']}")
-
-        # Simulate the extraction logic
-        extracted_pmids = re.findall(r'\b\d{7,9}\b', test_case['response'])
-        relevant_pmids = [pmid for pmid in extracted_pmids if pmid in test_case['batch_pmids']]
-
-        logger.info(f"Extracted PMIDs: {extracted_pmids}")
-        logger.info(f"Relevant PMIDs: {relevant_pmids}")
-        logger.info(f"Expected: {test_case['expected']}")
-        logger.info(f"✓ PASS" if relevant_pmids == test_case['expected'] else "✗ FAIL")
-
-    logger.info("\n=== Test Complete ===")
-
-@app.route('/test_parsing')
-def test_parsing():
-    """
-    Web endpoint to run PMID extraction tests.
-    
     Returns:
-        HTML page displaying test results
+        Server-sent events stream with debug messages
     """
-    import io
-    import sys
+    return Response(get_debug_messages(), mimetype='text/event-stream')
 
-    # Capture print output
-    old_stdout = sys.stdout
-    sys.stdout = buffer = io.StringIO()
 
-    try:
-        test_pmid_extraction()
-        output = buffer.getvalue()
-    finally:
-        sys.stdout = old_stdout
 
-    return f"<pre>{output}</pre>"
+@app.route('/get_terminal_output')
+def get_terminal_output():
+    """
+    Get the current captured terminal output.
+
+    Returns:
+        JSON response with the captured terminal output
+    """
+    output = get_captured_output()
+    return jsonify({'output': output})
+
+
+
+
 
 if __name__ == '__main__':
     url = f"http://127.0.0.1:5000"
 
     if not os.path.exists('templates'):
-        print("Creating 'templates' directory..., but that mean you have no html file, which contains the UI therefore you have to get it from Github.")
+        print("Creating 'templates' directory..., but that means you have no html file, which contains the UI, therefore you have to get it from Github.")
         os.makedirs('templates')
+
+    # Set up terminal output capture
+    setup_terminal_capture()
+    start_output_monitoring()
+
+    print("MA-LLM Screening Tool starting up")
+    print(f"Server will be available at: {url}")
+    print("Debug system initialized and ready")
+    print("Terminal output capture active")
 
     # Check if we should run tests
     if len(os.sys.argv) > 1 and os.sys.argv[1] == 'test':
-        test_pmid_extraction()
+        print("No test function available")
     else:
         # Starte Flask-Server im Thread damit Browser-Öffnung nach Server-Start erfolgt
         import threading
@@ -1076,10 +1225,13 @@ if __name__ == '__main__':
         def open_browser():
             time.sleep(1.5)  # Warte bis Server gestartet ist
             webbrowser.open(url)
-            print(f"'{url}' wird im Standardbrowser geöffnet.")
+            print(f"'{url}' is being opened in your usual browser.")
 
+        # Only open browser if not already running
+        import threading
         browser_thread = threading.Thread(target=open_browser)
         browser_thread.daemon = True
         browser_thread.start()
 
-        app.run(debug=True, threaded=True)
+        print("Starting Flask development server")
+        app.run(debug=True, threaded=True, use_reloader=False)
