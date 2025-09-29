@@ -15,6 +15,9 @@ import google.generativeai as genai
 from ollama import Client as OllamaClient
 from flask import Flask, render_template, request, jsonify, send_file
 import threading
+import webbrowser
+
+
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -1056,11 +1059,27 @@ def test_parsing():
     return f"<pre>{output}</pre>"
 
 if __name__ == '__main__':
+    url = f"http://127.0.0.1:5000"
+
     if not os.path.exists('templates'):
+        print("Creating 'templates' directory..., but that mean you have no html file, which contains the UI therefore you have to get it from Github.")
         os.makedirs('templates')
 
     # Check if we should run tests
     if len(os.sys.argv) > 1 and os.sys.argv[1] == 'test':
         test_pmid_extraction()
     else:
+        # Starte Flask-Server im Thread damit Browser-Öffnung nach Server-Start erfolgt
+        import threading
+        import time
+
+        def open_browser():
+            time.sleep(1.5)  # Warte bis Server gestartet ist
+            webbrowser.open(url)
+            print(f"'{url}' wird im Standardbrowser geöffnet.")
+
+        browser_thread = threading.Thread(target=open_browser)
+        browser_thread.daemon = True
+        browser_thread.start()
+
         app.run(debug=True, threaded=True)
