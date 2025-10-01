@@ -225,7 +225,6 @@
         <div id="debug-container" style="margin-top: 30px;">
             <h3>Debug Output <button type="button" class="help-btn" onclick="showModal('debug-modal')">?</button></h3>
             <div style="margin-bottom: 10px;">
-                <button id="clear-debug-btn" onclick="clearDebugOutput()">Clear Output</button>
                 <button id="toggle-debug-btn" onclick="toggleDebugOutput()">Hide/Show</button>
                 <button id="toggle-auto-scroll-btn" onclick="toggleAutoScroll()">Auto-scroll: ON</button>
             </div>
@@ -429,13 +428,7 @@
     </div>
 
     <script>
-        // Model-specific API key validation patterns
-        const apiKeyPatterns = {
-            'groq': /^gsk_[A-Za-z0-9]{32,}$/, // Groq keys start with gsk_ and are at least 32 chars
-            'openai': /^sk-[A-Za-z0-9]{48,}$/, // OpenAI keys start with sk- and are at least 48 chars
-            'anthropic': /^sk-ant-[A-Za-z0-9]{32,}$/, // Anthropic keys start with sk-ant- and are at least 32 chars
-            'google': /^[A-Za-z0-9_-]{39,}$/ // Google keys are at least 39 chars
-        };
+
 
         // UI Elements
         const form = document.getElementById('screening-form');
@@ -460,140 +453,12 @@
 
             if (this.value === 'goldstandard') {
                 goldstandardContainer.classList.remove('hidden');
-                setRequiredFields('goldstandard');
             } else if (this.value === 'freeform') {
                 freeformContainer.classList.remove('hidden');
-                setRequiredFields('freeform');
             }
         });
 
-        aiProviderSelect.addEventListener('change', function() {
-            validateInputs();
-        });
 
-        aiModelInput.addEventListener('input', function() {
-            validateInputs();
-        });
-
-        apiKeyInput.addEventListener('input', function() {
-            validateInputs();
-        });
-
-        function validateInputs() {
-            const provider = aiProviderSelect.value.trim();
-            const model = aiModelInput.value.trim();
-            const apiKey = apiKeyInput.value.trim();
-
-            // Clear previous error messages
-            clearErrors();
-
-            let isValid = true;
-
-            // Validate provider
-            if (!provider) {
-                showError('provider-error', 'Please select an AI provider.');
-                isValid = false;
-            }
-
-            // Validate model
-            if (!model) {
-                showError('model-error', 'Please enter a model name.');
-                isValid = false;
-            }
-
-            // Validate API key
-            if (!apiKey) {
-                showError('apikey-error', 'Please enter an API key.');
-                isValid = false;
-            } else if (provider && !validateApiKey(provider, apiKey)) {
-                showError('apikey-error', `Invalid API key format for ${provider}. Please check your key.`);
-                isValid = false;
-            }
-
-            // Validate email
-            const email = document.getElementById('entrez_email').value.trim();
-            if (!email || !isValidEmail(email)) {
-                showError('entrez-error', 'Please enter a valid email address.');
-                isValid = false;
-            }
-
-            // Mode-specific validation
-            const mode = screeningMode.value;
-            if (mode === 'goldstandard') {
-                if (!document.getElementById('initial_file').files[0]) {
-                    showError('initial-error', 'Please select an initial PMIDs file.');
-                    isValid = false;
-                }
-                if (!document.getElementById('goldstandard_file').files[0]) {
-                    showError('goldstandard-error', 'Please select a gold standard PMIDs file.');
-                    isValid = false;
-                }
-                if (!document.getElementById('prompts_file').files[0]) {
-                    showError('prompts-error', 'Please select a prompts file.');
-                    isValid = false;
-                }
-            } else if (mode === 'freeform') {
-                const searchQuery = document.getElementById('pubmed_search').value.trim();
-                const prompt = document.getElementById('screening_prompt').value.trim();
-                
-                if (!searchQuery) {
-                    showError('search-error', 'Please enter a PubMed search query.');
-                    isValid = false;
-                }
-                if (!prompt) {
-                    showError('prompt-error', 'Please enter a screening prompt.');
-                    isValid = false;
-                }
-            }
-
-            startBtn.disabled = !isValid;
-            
-            if (isValid) {
-                document.getElementById('validation-success').textContent = '✓ All fields validated successfully';
-            } else {
-                document.getElementById('validation-success').textContent = '';
-            }
-        }
-
-        function validateApiKey(provider, apiKey) {
-            const pattern = apiKeyPatterns[provider];
-            return pattern ? pattern.test(apiKey) : true; // If no pattern, assume valid
-        }
-
-        function isValidEmail(email) {
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            return emailRegex.test(email);
-        }
-
-        function showError(elementId, message) {
-            const errorElement = document.getElementById(elementId);
-            if (errorElement) {
-                errorElement.textContent = message;
-            }
-        }
-
-        function clearErrors() {
-            const errorElements = document.querySelectorAll('.error-message');
-            errorElements.forEach(el => el.textContent = '');
-        }
-
-        function setRequiredFields(mode) {
-            // Reset all form fields
-            const allInputs = form.querySelectorAll('input[type="file"], textarea');
-            allInputs.forEach(input => {
-                input.required = false;
-            });
-
-            // Set required fields based on mode
-            if (mode === 'goldstandard') {
-                form.querySelector('#initial_file').required = true;
-                form.querySelector('#goldstandard_file').required = true;
-                form.querySelector('#prompts_file').required = true;
-            } else if (mode === 'freeform') {
-                form.querySelector('#pubmed_search').required = true;
-                form.querySelector('#screening_prompt').required = true;
-            }
-        }
 
         // Form submission handler
         function handleFormSubmit(event) {
@@ -765,9 +630,7 @@
             }
         }
 
-        function clearDebugOutput() {
-            debugOutput.value = '';
-        }
+
 
         function toggleDebugOutput() {
             const debugContent = document.getElementById('debug-content');
@@ -812,9 +675,9 @@
 
 
 
-        // Initialize form validation on page load
+        // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
-            validateInputs();
+            // No validation needed
         });
     </script>
 </body>

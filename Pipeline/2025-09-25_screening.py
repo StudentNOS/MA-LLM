@@ -776,16 +776,15 @@ def process_prompts(prompts_df: pd.DataFrame, initial_pmids: List[str], goldstan
 
     RESULTS_DF = prompts_df.copy()
 
-    # Use all initial_pmids for screening, goldstandard is only for metrics
+    # Use ALL initial_pmids for screening, goldstandard is only for metrics
     goldstandard_set = set(goldstandard_pmids)
-    filtered_initial_pmids = [pmid for pmid in initial_pmids if pmid in goldstandard_set]
 
     print(f"INFO: Original initial_pmids count: {len(initial_pmids)}")
     print(f"INFO: Goldstandard_pmids count: {len(goldstandard_pmids)}")
-    print(f"INFO: Filtered initial_pmids count: {len(filtered_initial_pmids)}")
-    print(f"INFO: Filtered PMIDs: {filtered_initial_pmids}")
+    print(f"INFO: Using ALL initial PMIDs for screening: {len(initial_pmids)}")
+    print(f"INFO: Goldstandard PMIDs: {goldstandard_pmids}")
 
-    # Fetch all articles from Initial.txt, regardless of goldstandard
+    # Fetch all articles from Initial.txt for comprehensive screening
     articles = fetch_articles_by_pmids(initial_pmids)
 
     metric_names = ['sensitivity', 'specificity', 'ppv', 'tp', 'fp', 'tn', 'fn']
@@ -864,7 +863,12 @@ def process_prompts(prompts_df: pd.DataFrame, initial_pmids: List[str], goldstan
     print("INFO: Final RESULTS_DF content:")
     print(RESULTS_DF.to_string())
 
-    output_path = "prompt_results.xlsx"
+    # Verwende den Downloads-Ordner für alle Downloads
+    home_dir = os.path.expanduser("~")
+    base_path = os.path.join(home_dir, "Downloads")
+    os.makedirs(base_path, exist_ok=True)
+
+    output_path = os.path.join(base_path, "prompt_results.xlsx")
     RESULTS_DF.to_excel(output_path, index=False)
     print(f"INFO: Results saved to {output_path}")
 
@@ -950,7 +954,12 @@ def process_freeform_search(pubmed_query: str, screening_prompt: str, screen_lev
     RESULTS_DF.at[0, 'Relevant_Articles'] = len(results)
     RESULTS_DF.at[0, 'Relevant_PMIDs'] = ",".join(results)
 
-    output_path = "screening_results.xlsx"
+    # Verwende den Downloads-Ordner für alle Downloads
+    home_dir = os.path.expanduser("~")
+    base_path = os.path.join(home_dir, "Downloads")
+    os.makedirs(base_path, exist_ok=True)
+
+    output_path = os.path.join(base_path, "screening_results.xlsx")
     RESULTS_DF.to_excel(output_path, index=False)
 
     if STOP_REQUESTED:
@@ -1112,7 +1121,7 @@ def stop_processing():
 def get_results():
     """
     Download the results file.
-    
+
     Returns:
         Excel file with screening results or error message
     """
@@ -1121,13 +1130,19 @@ def get_results():
         # Determine the correct output file based on RESULTS_DF structure
         if 'Relevant_Articles' in RESULTS_DF.columns:
             # Freeform mode
-            output_path = "screening_results.xlsx"
+            filename = "screening_results.xlsx"
         else:
             # Goldstandard mode
-            output_path = "prompt_results.xlsx"
+            filename = "prompt_results.xlsx"
+
+        # Always look in Downloads folder for consistency
+        home_dir = os.path.expanduser("~")
+        downloads_path = os.path.join(home_dir, "Downloads")
+        output_path = os.path.join(downloads_path, filename)
 
         if os.path.exists(output_path):
             return send_file(output_path, as_attachment=True)
+
     return jsonify({'error': 'No results available'}), 404
 
 @app.route('/export_intermediate')
@@ -1139,6 +1154,11 @@ def export_intermediate():
         Excel file with current progress or fallback data
     """
     global RESULTS_DF
+
+    # Always save to Downloads folder for consistency
+    home_dir = os.path.expanduser("~")
+    downloads_path = os.path.join(home_dir, "Downloads")
+    os.makedirs(downloads_path, exist_ok=True)
 
     if not RESULTS_DF.empty:
         # Update RESULTS_DF with current database state for intermediate export
@@ -1157,7 +1177,7 @@ def export_intermediate():
             # For now, just export as is, since goldstandard updates per prompt
             pass
 
-        output_path = "intermediate_results.xlsx"
+        output_path = os.path.join(downloads_path, "intermediate_results.xlsx")
         RESULTS_DF.to_excel(output_path, index=False)
         return send_file(output_path, as_attachment=True)
     else:
@@ -1167,7 +1187,8 @@ def export_intermediate():
             cursor.execute("SELECT pmid FROM Articles WHERE relevant = 1")
             pmids = [item[0] for item in cursor.fetchall()]
         df = pd.DataFrame({'Relevant_PMIDs': pmids})
-        output_path = "intermediate_results.xlsx"
+
+        output_path = os.path.join(downloads_path, "intermediate_results.xlsx")
         df.to_excel(output_path, index=False)
         return send_file(output_path, as_attachment=True)
 
@@ -1201,7 +1222,8 @@ def get_terminal_output():
 if __name__ == '__main__':
     url = f"http://127.0.0.1:5000"
 
-    if not os.path.exists('templates'):
+    # Only check for templates directory when running as Python script, not as exe
+    if not getattr(sys, 'frozen', False) and not os.path.exists('templates'):
         print("Creating 'templates' directory..., but that means you have no html file, which contains the UI, therefore you have to get it from Github.")
         os.makedirs('templates')
 
