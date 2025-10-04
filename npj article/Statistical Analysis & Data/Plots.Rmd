@@ -1,0 +1,244 @@
+---
+title: "OASIS-D PP3 Characteristics Table"
+author: "Till Julius Adam"
+date: "2024-12-22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(pander)
+library(effsize)
+library(pwr)
+library(gtsummary)
+library(gt)
+library(car)
+library(flextable)
+library(officer)
+library(readxl)
+library(writexl)
+library(survival)
+library(lavaan)
+library(survminer)
+library(broom)
+library(haven)
+library(zoo)
+library(lubridate)
+library(vcd)
+library(lmerTest)
+library(pbkrtest)
+library(effectsize)
+library(broom.mixed)
+library(performance)
+library(dplyr)
+library(ggplot2)
+library(ggsignif)
+library(ggpubr)
+library(DescTools)
+```
+
+```{r}
+MALLM <- read_excel("MA-LLM_Data & Prompts.xlsx")
+MALLM$MA <- as.factor(MALLM$MA)
+
+
+MALLM$Model <- as.factor(MALLM$Model)
+MALLM$Reference <- as.factor(MALLM$Reference)
+MALLM$Info <- as.factor(MALLM$Info)
+MALLM$screen_section <- as.factor(MALLM$screen_section)
+MALLM$Reference <- relevel(MALLM$Reference, ref = "No_Reference")
+MALLM$Info      <- relevel(MALLM$Info,      ref = "No_Info")
+MALLM$Model      <- relevel(MALLM$Model,      ref = "llama8")
+MALLM$screen_section      <- relevel(MALLM$screen_section,      ref = "Title")
+
+MALLM$precision <- MALLM$tp / (MALLM$tp + MALLM$fp)
+MALLM$recall    <- MALLM$tp / (MALLM$tp + MALLM$fn)
+
+MALLM$Accuracy <- (MALLM$sensitivity + MALLM$specificity)/2
+
+#cols <- c("sensitivity", "specificity", "Accuracy")
+#MALLM[cols] <- lapply(MALLM[cols], function(x) x * 100)
+
+names(MALLM)[names(MALLM) == "sensitivity"] <- "Sensitivity"
+names(MALLM)[names(MALLM) == "specificity"] <- "Specificity"
+```
+
+
+# Plots
+```{r}
+metrics_to_compare <- c("Accuracy", "Sensitivity", "Specificity")
+
+process_metric <- function(metric_name) {
+  df <- MALLM %>%
+    mutate(value = as.numeric(gsub(",", ".", .[[metric_name]])))
+
+  # Summary statistics
+  summary_df <- df %>%
+    group_by(MA) %>%
+    summarise(
+      mean = mean(value, na.rm = TRUE),
+      lower = mean - (sd(value, na.rm = TRUE)/2),
+      upper = mean + (sd(value, na.rm = TRUE)/2)
+    ) %>%
+    mutate(Metric = metric_name)
+
+  # Tukey HSD
+  aov_model <- aov(value ~ as.factor(MA), data = df)
+  tukey_result <- TukeyHSD(aov_model)
+
+  tukey_df <- as.data.frame(tukey_result$`as.factor(MA)`) %>%
+    mutate(
+      comparison = rownames(.),
+      p_stars = case_when(
+        `p adj` < 0.001 ~ "***",
+        `p adj` < 0.01 ~ "**",
+        `p adj` < 0.05 ~ "*",
+        `p adj` >= 0.05 ~ NA,
+        TRUE ~ ""
+      )
+    ) %>%
+    separate(comparison, into = c("MA1", "MA2"), sep = "-")
+
+  all_MA <- unique(as.character(df$MA))
+
+  sig_matrix <- expand.grid(MA1 = all_MA, MA2 = all_MA, stringsAsFactors = FALSE) %>%
+    left_join(tukey_df, by = c("MA1", "MA2")) %>%
+    mutate(p_stars = ifelse(is.na(p_stars),
+                            left_join(., tukey_df, by = c("MA1" = "MA2", "MA2" = "MA1"))$p_stars.y,
+                            p_stars)) %>%
+    select(MA = MA1, compared_to = MA2, significance = p_stars) %>%
+    pivot_wider(names_from = compared_to, values_from = significance)
+
+  # Combine
+  final_df <- left_join(summary_df, sig_matrix, by = "MA")
+  return(final_df)
+}
+
+final_df <- purrr::map_dfr(metrics_to_compare, process_metric)
+
+final_df
+```
+
+```{r}
+sig_brackets <- function(df, base_offset = NA, spacing = NA) {
+  df <- df %>% mutate(MA = as.character(MA))
+  df_split <- split(df, df$Metric)
+
+  purrr::map_dfr(df_split, function(metric_df) {
+    metric_df <- metric_df %>%
+      arrange(mean) %>%
+      mutate(
+        MA_ordered = factor(MA, levels = unique(MA)),
+        x_group = factor(paste(Metric, MA_ordered, sep = "_"),
+                         levels = unique(paste(Metric, MA_ordered, sep = "_")))
+      )
+
+    ma_positions <- setNames(seq_along(metric_df$MA_ordered), as.character(metric_df$MA_ordered))
+    pairs <- expand.grid(i = levels(metric_df$MA_ordered), j = levels(metric_df$MA_ordered), stringsAsFactors = FALSE) %>%
+      dplyr::filter(i < j)
+
+    purrr::pmap_dfr(pairs, function(i, j) {
+      sig_value <- metric_df %>% dplyr::filter(MA == i) %>% dplyr::pull(!!sym(j)) %>% .[[1]]
+      if (!is.na(sig_value) && sig_value != "") {
+        y_max <- max(metric_df %>% dplyr::filter(MA %in% c(i, j)) %>% dplyr::pull(upper), na.rm = TRUE)
+        dist  <- abs(ma_positions[[i]] - ma_positions[[j]])
+        tibble::tibble(
+          Metric = unique(metric_df$Metric),
+          xmin = paste(unique(metric_df$Metric), i, sep = "_"),
+          xmax = paste(unique(metric_df$Metric), j, sep = "_"),
+          annotation = sig_value,
+          dist = dist,
+          y.position = y_max + base_offset + dist * spacing
+        )
+      } else {
+        NULL
+      }
+    })
+  })
+}
+
+```
+
+
+```{r}
+final_df <- final_df %>%
+  mutate(
+    MA = as.character(MA),
+    Metric = factor(Metric, levels = metrics_to_compare)
+  ) %>%
+  group_by(Metric) %>%
+  arrange(Metric, mean) %>%
+  mutate(
+    MA_ordered = factor(MA, levels = unique(MA)),
+    x_group = factor(paste(Metric, MA_ordered, sep = "_"), levels = unique(paste(Metric, MA_ordered, sep = "_")))
+  ) %>%
+  ungroup()
+
+brackets_df <- sig_brackets(
+  final_df,
+  base_offset = 0,
+  spacing = 8 
+)
+
+brackets_df <- brackets_df %>%
+  mutate(y.position = y.position - 5)
+
+extra <- 8
+brackets_df <- brackets_df %>%
+  mutate(
+    y.position = ifelse(Metric %in% c("Accuracy","Specificity"),
+                        y.position + dist * extra,
+                        y.position)
+  )
+
+ggplot(final_df, aes(x = x_group, y = mean)) +
+  geom_bar(aes(fill = MA_ordered), stat = "identity", color = "black") +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2) +
+  ggsignif::geom_signif(
+    data = brackets_df,
+    aes(xmin = xmin, xmax = xmax, annotations = annotation, y_position = y.position),
+    manual = TRUE,
+    tip_length = 0.01
+  ) +
+  scale_fill_manual(
+    values = c(
+      "1" = "#872254",
+      "2" = "#43AA9A",
+      "3" = "#DDCB76",
+      "4" = "#7209B7"
+    ),
+    labels = c(
+      "1" = "Yang et al.",
+      "2" = "Geta et al.",
+      "3" = "Yu et al.",
+      "4" = "Santmartí-Oliver et al."
+    ),
+    name = "Meta-analysis"
+  ) +
+  scale_x_discrete(labels = NULL) +
+  scale_y_continuous(
+    limits = c(0, 130),                     # extends axis for brackets
+    breaks = seq(0, 100, by = 20),          # only show labels up to 1.0
+    expand = expansion(mult = c(0, 0))       # remove extra padding
+  ) +
+  facet_grid(. ~ Metric, scales = "free_x", space = "free_x") +
+  labs(x = NULL, y = NULL) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = 10),
+    strip.placement = "outside",
+    strip.text = element_text(size = 12, face = "bold"),
+    panel.spacing.x = unit(1, "lines")
+  )
+
+ggsave(
+  filename = "MA_comparison.jpg",
+  plot = last_plot(),
+  width = 10,
+  height = 6,
+  dpi = 300
+)
+```

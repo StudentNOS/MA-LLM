@@ -1,0 +1,293 @@
+---
+title: "MA-LLM statistical analyses"
+author: "Till Julius Adam"
+date: "2025-06-22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(pander)
+library(effsize)
+library(pwr)
+library(gtsummary)
+library(gt)
+library(car)
+library(flextable)
+library(officer)
+library(readxl)
+library(writexl)
+library(survival)
+library(lavaan)
+library(survminer)
+library(broom)
+library(haven)
+library(zoo)
+library(lubridate)
+library(vcd)
+library(lmerTest)
+library(pbkrtest)
+library(effectsize)
+library(broom.mixed)
+library(performance)
+library(dplyr)
+library(ggplot2)
+library(ggsignif)
+library(ggpubr)
+library(DescTools)
+library(effectsize)
+library(boot)
+```
+
+```{r}
+MALLM <- read_excel("MA-LLM_Data & Prompts.xlsx")
+```
+
+```{r}
+MALLM$MA <- as.factor(MALLM$MA)
+MALLM$Model <- as.factor(MALLM$Model)
+MALLM$Reference <- as.factor(MALLM$Reference)
+MALLM$Info <- as.factor(MALLM$Info)
+MALLM$screen_section <- as.factor(MALLM$screen_section)
+MALLM$Reference <- relevel(MALLM$Reference, ref = "No_Reference")
+MALLM$Info      <- relevel(MALLM$Info,      ref = "No_Info")
+MALLM$Model      <- relevel(MALLM$Model,      ref = "llama8")
+MALLM$screen_section      <- relevel(MALLM$screen_section,      ref = "Title")
+```
+
+
+# Table 1
+```{r}
+outcomes <- c("sensitivity", "specificity", "Accuracy")
+predictors <- c("MA", "Model", "Reference", "Info", "screen_section")
+
+format_stats <- function(data, var) {
+  m <- mean(data[[var]], na.rm = TRUE)
+  s <- sd(data[[var]], na.rm = TRUE)
+  id_means <- tapply(data[[var]], data$PromptID, mean, na.rm = TRUE)
+  mn <- min(id_means, na.rm = TRUE)
+  mx <- max(id_means, na.rm = TRUE)
+  sprintf("%.1f (%.1f) [%.1f, %.1f]", m, s, mn, mx)
+}
+
+summarise_group <- function(data, group_label) {
+  res <- sapply(outcomes, function(v) format_stats(data, v))
+  data.frame(Predictor = group_label, t(res), check.names = FALSE)
+}
+
+summary_list <- list(summarise_group(MALLM, "Overall"))
+
+for (pred in predictors) {
+  levels <- unique(MALLM[[pred]])
+  summary_list[[length(summary_list) + 1]] <- data.frame(Predictor = pred, matrix(NA, ncol=length(outcomes), nrow=1, dimnames=list(NULL, outcomes)))
+  for (lev in levels) {
+    df_sub <- MALLM[MALLM[[pred]] == lev, ]
+    summary_list[[length(summary_list) + 1]] <- summarise_group(df_sub, as.character(lev))
+  }
+}
+
+result <- dplyr::bind_rows(summary_list)
+write_xlsx(result, "Table 1_Descriptive.xlsx")
+```
+
+
+# Table 2
+```{r}
+outcome <- "Accuracy"
+predictors <- c("Words", "Reference", "Info", "screen_section", "Model")
+output <- list()
+
+for (pred in predictors) {
+  if (is.numeric(MALLM[[pred]])) {
+    model <- lmer(as.formula(paste(outcome, "~ MALLM[[pred]] + (1 | MA)")), data = MALLM)
+    est <- tidy(model, effects = "fixed") %>% filter(term == "MALLM[[pred]]")
+    ci <- confint(model, method = "Wald")["MALLM[[pred]]", ]
+    output[[length(output) + 1]] <- tibble(
+      Predictor = pred,
+      `beta (95% CI)` = sprintf("%.2f (%.2f, %.2f)", est$estimate, ci[1], ci[2]),
+      `std. error` = round(est$std.error, 3),
+      p = sprintf("%.3f", est$p.value),
+      AIC = round(AIC(model), 1),
+      BIC = round(BIC(model), 1),
+      logLik = round(logLik(model)[1], 1)
+    )
+  } else {
+    output[[length(output) + 1]] <- tibble(
+      Predictor = pred,
+      `beta (95% CI)` = NA,
+      `std. error` = NA,
+      p = NA,
+      AIC = NA,
+      BIC = NA,
+      logLik = NA
+    )
+    
+    lvls <- setdiff(unique(MALLM[[pred]]), levels(as.factor(MALLM[[pred]]))[1])
+    MALLM[[pred]] <- factor(MALLM[[pred]])
+    model <- lmer(as.formula(paste(outcome, "~", pred, "+ (1 | MA)")), data = MALLM)
+    est <- tidy(model, effects = "fixed") %>% filter(term != "(Intercept)")
+    ci <- confint(model, method = "Wald")[rownames(confint(model)) %in% paste0(pred, lvls), , drop = FALSE]
+    
+    for (lvl in lvls) {
+      row <- est %>% filter(term == paste0(pred, lvl))
+      ci_row <- ci[paste0(pred, lvl), ]
+      output[[length(output) + 1]] <- tibble(
+        Predictor = paste0("  ", lvl),
+        `beta (95% CI)` = sprintf("%.2f (%.2f, %.2f)", row$estimate, ci_row[1], ci_row[2]),
+        `std. error` = round(row$std.error, 3),
+        p = sprintf("%.3f", row$p.value),
+        AIC = round(AIC(model), 1),
+        BIC = round(BIC(model), 1),
+        logLik = round(logLik(model)[1], 1)
+      )
+    }
+  }
+}
+
+lmm_results <- bind_rows(output)
+
+write_xlsx(lmm_results, "Table 2_LMMs.xlsx")
+```
+
+
+# Table 3
+```{r}
+vars <- c("Accuracy", "sensitivity", "specificity")
+MALLM$MA <- factor(MALLM$MA)
+stopifnot(nlevels(MALLM$MA) == 4)
+lvl <- levels(MALLM$MA)
+
+omega_boot <- function(d, i){
+  y <- d$y[i]; g <- d$g[i]
+  fit <- aov(y ~ g)
+  effectsize::omega_squared(fit)$Omega2[1]
+}
+
+rows <- lapply(vars, function(v) {
+  y <- MALLM[[v]]; g <- MALLM$MA
+  fit <- aov(y ~ g)
+  sm  <- summary(fit)[[1]]
+
+  Fstat <- sm[["F value"]][1]
+  df1   <- sm[["Df"]][1]
+  df2   <- sm[["Df"]][2]
+  p     <- sm[["Pr(>F)"]][1]
+
+  m  <- tapply(y, g, mean, na.rm = TRUE)[lvl]
+  sd <- tapply(y, g, stats::sd, na.rm = TRUE)[lvl]
+  ms <- sprintf("%.1f (%.1f)", round(m, 1), round(sd, 1))
+
+  d   <- data.frame(y=y, g=g)
+  b   <- boot::boot(d, statistic = omega_boot, R = 100, strata = d$g)
+  ci  <- tryCatch(boot::boot.ci(b, type = "perc")$percent[4:5], error=function(e) c(NA,NA))
+  osd <- sd(b$t, na.rm = TRUE)
+
+  data.frame(
+    Variable           = v,
+    "MA 1 average"     = ms[1],
+    "MA 2 average"     = ms[2],
+    "MA 3 average"     = ms[3],
+    "MA 4 average"     = ms[4],
+    "F (df1, df2)"     = sprintf("%.2f \n(%d, %d)", Fstat, df1, df2),
+    "ω² (95% boot CI)" = sprintf("%.2f \n(%.2f, %.2f)", b$t0, ci[1], ci[2]),
+    "ω² SD (boot)"     = sprintf("%.2f", osd),
+    "p-value"          = sprintf("%.3f", p),
+    check.names = FALSE
+  )
+})
+
+ANOVA_summary <- do.call(rbind, rows)
+row.names(ANOVA_summary) <- NULL
+ANOVA_summary
+
+long <- ANOVA_summary |>
+  tidyr::pivot_longer(
+    cols = -Variable,
+    names_to = "Statistic",
+    values_to = "Value"
+  )
+
+# Keep only rows requested in the final layout
+rows_order <- c("MA 1 average","MA 2 average","MA 3 average","MA 4 average","F (df1, df2)","p-value")
+
+ANOVA_summary_wide <- long |>
+  dplyr::filter(Statistic %in% rows_order) |>
+  tidyr::pivot_wider(names_from = Variable, values_from = Value) |>
+  dplyr::mutate(Statistic = factor(Statistic, levels = rows_order)) |>
+  dplyr::arrange(Statistic)
+
+ANOVA_summary_wide
+
+write_xlsx(ANOVA_summary_wide, "Table 3_ANOVA_summary.xlsx")
+```
+
+Table 4
+```{r}
+metrics <- c("Accuracy","sensitivity","specificity")
+
+# per-ID means and SDs
+agg_mean <- aggregate(MALLM[, metrics], by = list(ID = MALLM$PromptID), FUN = mean, na.rm = TRUE)
+agg_sd   <- aggregate(MALLM[, metrics], by = list(ID = MALLM$PromptID), FUN = sd,   na.rm = TRUE)
+
+# format as "mean (SD)" with one decimal, always showing trailing zero
+for (m in metrics) {
+  agg_mean[[m]] <- sprintf("%.1f (%.1f)", agg_mean[[m]], agg_sd[[m]])
+}
+
+# map and merge
+map <- aggregate(cbind(Prompt, Reference, Info) ~ PromptID, MALLM, FUN = function(x) x[1])
+names(map)[1] <- "ID"
+
+result <- merge(agg_mean, map, by = "ID")[, c("ID","Prompt","Reference","Info", metrics)]
+result <- result[order(-as.numeric(gsub("\\s*\\(.*\\)$", "", result$specificity))), ]
+
+write_xlsx(result, "Table 4.1_Average metrics across prompts.xlsx")
+```
+
+```{r}
+vars <- c("Accuracy", "sensitivity", "specificity")
+MALLM$ID <- factor(MALLM$PromptID)
+
+omega_boot <- function(d, i){
+  y <- d$y[i]; g <- d$g[i]
+  fit <- aov(y ~ g)
+  effectsize::omega_squared(fit)$Omega2[1]
+}
+
+rows <- lapply(vars, function(v) {
+  y <- MALLM[[v]]; g <- MALLM$ID
+  fit <- aov(y ~ g)
+  sm  <- summary(fit)[[1]]
+  Fv  <- sm[["F value"]][1]
+  p   <- sm[["Pr(>F)"]][1]
+  df1 <- sm[["Df"]][1]
+  df2 <- sm[["Df"]][2]
+
+  d <- data.frame(y=y, g=g)
+  d <- d[complete.cases(d), ]
+  b <- boot::boot(d, statistic = omega_boot, R = 2, strata = d$g)
+  ci <- tryCatch(boot::boot.ci(b, type = "perc")$percent[4:5], error=function(e) c(NA,NA))
+
+  list(
+    Metric = v,
+    omega   = sprintf("%.2f (%.2f, %.2f)", b$t0, ci[1], ci[2]),
+    Fstat   = sprintf("%.2f (%d, %d)", Fv, df1, df2),
+    pval    = sprintf("%.3f", p)
+  )
+})
+
+# Reshape to wide
+omega_row <- setNames(sapply(rows, `[[`, "omega"), vars)
+F_row     <- setNames(sapply(rows, `[[`, "Fstat"), vars)
+p_row     <- setNames(sapply(rows, `[[`, "pval"), vars)
+
+ANOVA_summary <- rbind(omega_row, F_row, p_row)
+row.names(ANOVA_summary) <- c("ω² (95% CI)", "F (df1, df2)", "p-value")
+
+ANOVA_summary <- as.data.frame(ANOVA_summary)
+write_xlsx(ANOVA_summary, "Table 4.2_ANOVA by prompt ID.xlsx")
+```
+
