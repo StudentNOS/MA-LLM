@@ -385,7 +385,7 @@ def screen_articles(stage: str, prompt: str, ai_client: AIModelClient, screen_le
 def calculate_metrics(goldstandard: List[str], stage: str) -> Dict[str, float]:
     with sqlite3.connect(DATABASE) as conn:
         df = pd.read_sql_query("SELECT pmid, relevant, stage FROM Articles", conn)
-    if df.empty: return {metric: 0 for metric in ['sensitivity', 'specificity', 'ppv', 'tp', 'fp', 'tn', 'fn']}
+    if df.empty: return {metric: "-" for metric in ['sensitivity', 'specificity', 'ppv', 'tp', 'fp', 'tn', 'fn']}
     
     gs_set = set(goldstandard)
     if stage == 'titles':
@@ -394,7 +394,7 @@ def calculate_metrics(goldstandard: List[str], stage: str) -> Dict[str, float]:
     elif stage == 'abstracts':
         all_pmids_in_scope = set(df[df['stage'] == 'abstracts']['pmid'])
         screened_in = set(df[(df['stage'] == 'abstracts') & (df['relevant'] == 1)]['pmid'])
-    else: return {metric: 0 for metric in ['sensitivity', 'specificity', 'ppv', 'tp', 'fp', 'tn', 'fn']}
+    else: return {metric: "-" for metric in ['sensitivity', 'specificity', 'ppv', 'tp', 'fp', 'tn', 'fn']}
 
     screened_out = all_pmids_in_scope - screened_in
     tp = len(gs_set.intersection(screened_in))
@@ -434,7 +434,7 @@ def process_prompts(prompts_df: pd.DataFrame, initial_pmids: List[str], goldstan
         else:
             with sqlite3.connect(DATABASE) as conn:
                 conn.cursor().execute("UPDATE Articles SET stage = 'abstracts' WHERE stage = 'initial'")
-            title_metrics = {metric: 0 for metric in metric_names}
+            title_metrics = {metric: "-" for metric in metric_names}
         for metric, value in title_metrics.items(): RESULTS_DF.at[idx, f'title_{metric}'] = value
         if STOP_REQUESTED: break
 
@@ -442,7 +442,7 @@ def process_prompts(prompts_df: pd.DataFrame, initial_pmids: List[str], goldstan
             screen_articles('abstracts', row['AbstractPrompt'], ai_client, 'abstracts', current_prompt=idx, total_prompts=len(RESULTS_DF))
             abstract_metrics = calculate_metrics(goldstandard_pmids, 'abstracts')
         else:
-            abstract_metrics = {metric: 0 for metric in metric_names}
+            abstract_metrics = {metric: "-" for metric in metric_names}
             with sqlite3.connect(DATABASE) as conn:
                 conn.cursor().execute("UPDATE Articles SET relevant = 1 WHERE stage = 'abstracts'")
         for metric, value in abstract_metrics.items(): RESULTS_DF.at[idx, f'abstract_{metric}'] = value
@@ -453,7 +453,7 @@ def process_prompts(prompts_df: pd.DataFrame, initial_pmids: List[str], goldstan
     
     output_path = os.path.join(os.path.expanduser("~"), "Downloads", "prompt_results.xlsx")
     RESULTS_DF.to_excel(output_path, index=False)
-    CURRENT_STATUS = "Stopped! Partial results saved." if STOP_REQUESTED else "Completed! Results saved."
+    CURRENT_STATUS = "Stopped! Save partial results." if STOP_REQUESTED else "Completed! Results saved."
 
 def process_freeform_search(pubmed_query: str, screening_prompt: str, screen_level: str, 
                            ai_client: AIModelClient, max_articles: int = 100000):
@@ -483,7 +483,7 @@ def process_freeform_search(pubmed_query: str, screening_prompt: str, screen_lev
     
     output_path = os.path.join(os.path.expanduser("~"), "Downloads", "screening_results.xlsx")
     RESULTS_DF.to_excel(output_path, index=False)
-    CURRENT_STATUS = "Stopped! Partial results saved." if STOP_REQUESTED else "Completed! Results saved."
+    CURRENT_STATUS = "Stopped! Save partial results." if STOP_REQUESTED else "Completed! Results saved."
 
 @app.route('/')
 def index(): return render_template('2025-09-25_index.html')

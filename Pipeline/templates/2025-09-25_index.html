@@ -222,12 +222,8 @@
             <a href="/results" id="results-link" style="display:none;"><button type="button">Download Results</button></a>
         </div>
 
-        <div id="debug-container" style="margin-top: 30px;">
+        <div id="debug-container" class="hidden" style="margin-top: 30px;">
             <h3>Debug Output <button type="button" class="help-btn" onclick="showModal('debug-modal')">?</button></h3>
-            <div style="margin-bottom: 10px;">
-                <button id="toggle-debug-btn" onclick="toggleDebugOutput()">Hide/Show</button>
-                <button id="toggle-auto-scroll-btn" onclick="toggleAutoScroll()">Auto-scroll: ON</button>
-            </div>
             <div id="debug-content">
                 <textarea id="debug-output" style="
                     width: 100%;
@@ -243,6 +239,12 @@
                     overflow-y: auto;
                 " readonly placeholder="Debug messages and errors will appear here..."></textarea>
             </div>
+        </div>
+
+        <!-- Debug Control Buttons (always visible) -->
+        <div id="debug-controls" style="margin-top: 10px;">
+            <button id="toggle-debug-btn" onclick="toggleDebugOutput()">Show Debug</button>
+            <button id="toggle-auto-scroll-btn" onclick="toggleAutoScroll()">Auto-scroll: ON</button>
         </div>
     </div>
 
@@ -633,14 +635,14 @@
 
 
         function toggleDebugOutput() {
-            const debugContent = document.getElementById('debug-content');
+            const debugContainer = document.getElementById('debug-container');
             const toggleBtn = document.getElementById('toggle-debug-btn');
 
-            if (debugContent.style.display === 'none') {
-                debugContent.style.display = 'block';
+            if (debugContainer.classList.contains('hidden')) {
+                debugContainer.classList.remove('hidden');
                 toggleBtn.textContent = 'Hide Debug';
             } else {
-                debugContent.style.display = 'none';
+                debugContainer.classList.add('hidden');
                 toggleBtn.textContent = 'Show Debug';
             }
         }
