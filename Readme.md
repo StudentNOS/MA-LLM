@@ -5,7 +5,7 @@ This repository contains the MA-LLM screening pipeline, a tool for automated scr
 - Screening Selection Comparison: compare LLM-based selections with a manual gold standard.
 - Comparison-free Screening (Freeform): run PubMed searches and screen articles without a comparison set.
 
-This README explains how to run the project from source, notes on the provided .exe (if any), required Python packages, common troubleshooting steps, and recommended small fixes and naming conventions.
+This README explains how to run the project from source, notes on the provided .exe (if any), required Python packages, common troubleshooting steps, and recommended small fixes and naming conventions. It is mainly intended for use when the provided .exe file does not work on your system (for example, on macOS or unsupported platforms).
 
 ## Table of contents
 - Project Structure
@@ -17,9 +17,9 @@ This README explains how to run the project from source, notes on the provided .
 
 ## Project structure (important files/folders)
 
-- `MA-LLM Pipeline/2025-10-02_screening.py` — main Flask app and processing logic (entrypoint)
-- `MA-LLM Pipeline/templates/2025-09-25_index.html` — front-end UI used by the Flask app
-- `MA-LLM Pipeline/ExampleFiles/` — example PMIDs, prompts and gold-standard files (use these to test input formats)
+- `MALLM_Pipeline/MALLM.py` — main Flask app and processing logic (entrypoint)
+- `MALLM_Pipeline/templates/MALLM.html` — front-end UI used by the Flask app
+- `MALLM_Pipeline/ExampleFiles/` — example PMIDs, prompts and gold-standard files (use these to test input formats)
 - `requirements.txt` — Python package list
 - `Readme.md`
 
@@ -42,12 +42,8 @@ pip install -r requirements.txt
 4. Start the Flask UI (the web UI will open automatically):
 
 ```bash
-python "MA-LLM Pipeline/2025-10-02_screening.py"
+python "MALLM_Pipeline/MALLM.py"
 ```
-
-#### Running the provided .exe (Windows)
-
-- If using .exe is provided in the release, it may not run out-of-the-box depending on how it was built. Ensure the file was built correctly for your platform and that the download didn't corrupt it.
 
 #### Required Python packages
 
@@ -87,6 +83,6 @@ python "MA-LLM Pipeline/2025-10-02_screening.py"
 
 - The UI requires `initial_file` and `goldstandard_file` (text files with PMIDs) and `prompts_file` (Excel) when you select the Comparison mode. Make sure files are uploaded in the form.
 - For Freeform mode you need to provide a PubMed search query, screening prompt, and max articles.
-- For the Ollama provider the server constructs a local client (hosted at `http://localhost:11434`) and should not require an API key. If the UI still shows the API key field for Ollama, you can safely leave it empty and start the server.
+- For the Ollama provider the server constructs a local client and should not require an API key. If the UI still shows the API key field for Ollama, you can safely leave it empty and start the server.
 
 ## License & citation
