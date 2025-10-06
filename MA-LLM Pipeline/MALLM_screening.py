@@ -220,7 +220,17 @@ class AIModelClient:
         elif self.provider == 'google':
             genai.configure(api_key=self.api_key)
             return genai
-        elif self.provider == 'ollama': return OllamaClient(host='http://localhost:11434')
+        elif self.provider == 'ollama':
+            try:
+                client = OllamaClient(host='http://localhost:11434')
+                # A quick test to see if the server is really responding
+                client.list() 
+                return client
+            except Exception as e:
+                print("ERROR: Failed to connect to Ollama client at http://localhost:11434.")
+                print("ERROR: Please ensure Ollama is running and accessible.")
+                # Create a meaningful error that stops the process.
+                raise ConnectionError("Could not connect to Ollama. Please ensure it is running.")
         else: raise ValueError(f"Unknown provider: {self.provider}")
 
     def generate_completion(self, prompt: str, retries: int = MAX_RETRIES) -> str:
@@ -451,9 +461,23 @@ def process_prompts(prompts_df: pd.DataFrame, initial_pmids: List[str], goldstan
             pmids = pd.read_sql_query("SELECT pmid FROM Articles WHERE stage = 'abstracts' AND relevant = 1", conn)
             RESULTS_DF.at[idx, 'Final_Relevant_PMIDs'] = ",".join(pmids['pmid'].tolist())
     
-    output_path = os.path.join(os.path.expanduser("~"), "Downloads", "prompt_results.xlsx")
-    RESULTS_DF.to_excel(output_path, index=False)
-    CURRENT_STATUS = "Stopped! Save partial results." if STOP_REQUESTED else "Completed! Results saved."
+    try:
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        filename = f"prompt_results_{timestamp}.xlsx"
+        output_path = os.path.join(os.path.expanduser("~"), "Downloads", filename)
+        
+        print(f"INFO: Saving results to {output_path}")
+        RESULTS_DF.to_excel(output_path, index=False)
+        
+        CURRENT_STATUS = "Stopped! Save partial results." if STOP_REQUESTED else f"Completed! Results saved to {output_path}"
+
+    except (PermissionError, IOError) as e:
+        print(f"FATAL ERROR: Could not save results to '{output_path}'. Reason: {e}")
+        print("FATAL ERROR: Please check if you have write permissions for the Downloads folder.")
+        CURRENT_STATUS = f"Error: Could not save file. Check permissions for Downloads folder."
+    except Exception as e:
+        print(f"FATAL ERROR: An unexpected error occurred while saving the results file: {e}")
+        CURRENT_STATUS = "Error: An unexpected error occurred while saving results."
 
 def process_freeform_search(pubmed_query: str, screening_prompt: str, screen_level: str, 
                            ai_client: AIModelClient, max_articles: int = 100000):
@@ -481,12 +505,26 @@ def process_freeform_search(pubmed_query: str, screening_prompt: str, screen_lev
     RESULTS_DF.at[0, 'Relevant_Articles'] = len(final_pmids)
     RESULTS_DF.at[0, 'Relevant_PMIDs'] = ",".join(final_pmids['pmid'].tolist())
     
-    output_path = os.path.join(os.path.expanduser("~"), "Downloads", "screening_results.xlsx")
-    RESULTS_DF.to_excel(output_path, index=False)
-    CURRENT_STATUS = "Stopped! Save partial results." if STOP_REQUESTED else "Completed! Results saved."
+    try:
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        filename = f"screening_results_{timestamp}.xlsx"
+        output_path = os.path.join(os.path.expanduser("~"), "Downloads", filename)
+        
+        print(f"INFO: Saving results to {output_path}")
+        RESULTS_DF.to_excel(output_path, index=False)
+        
+        CURRENT_STATUS = "Stopped! Save partial results." if STOP_REQUESTED else f"Completed! Results saved to {output_path}"
+
+    except (PermissionError, IOError) as e:
+        print(f"FATAL ERROR: Could not save results to '{output_path}'. Reason: {e}")
+        print("FATAL ERROR: Please check if you have write permissions for the Downloads folder.")
+        CURRENT_STATUS = f"Error: Could not save file. Check permissions for Downloads folder."
+    except Exception as e:
+        print(f"FATAL ERROR: An unexpected error occurred while saving the results file: {e}")
+        CURRENT_STATUS = "Error: An unexpected error occurred while saving results."
 
 @app.route('/')
-def index(): return render_template('2025-09-25_index.html')
+def index(): return render_template('MALLM.html')
 
 def start_processing_thread(target_func, args_tuple):
     global PROCESS_THREAD, STOP_REQUESTED
@@ -497,9 +535,29 @@ def start_processing_thread(target_func, args_tuple):
 @app.route('/run_comparison', methods=['POST'])
 def run_comparison():
     global ENTREZ_EMAIL, API_KEY
+
+    # --- STARTUP CHECK ---
+    downloads_path = os.path.join(os.path.expanduser("~"), "Downloads")
+    if not os.access(downloads_path, os.W_OK):
+        CURRENT_STATUS = f"Error: No write permission for Downloads folder: {downloads_path}"
+        print(f"VALIDATION ERROR: No write permission for Downloads folder: {downloads_path}")
+        return jsonify({'status': 'error', 'message': CURRENT_STATUS}), 400 # Bad Request
+    # --- END CHECK ---
+
     ENTREZ_EMAIL = request.form['entrez_email']
-    API_KEY = request.form['api_key']
-    ai_client = AIModelClient(request.form['ai_provider'], request.form['ai_model'], API_KEY)
+    ai_provider = request.form['ai_provider']
+
+    # Handle API key for different providers
+    if ai_provider.lower() == 'ollama':
+        API_KEY = ''  # No API key needed for Ollama
+    else:
+        API_KEY = request.form['api_key']
+        if not API_KEY.strip():
+            CURRENT_STATUS = f"Error: API key is required for {ai_provider}"
+            print(f"VALIDATION ERROR: API key is required for {ai_provider}")
+            return jsonify({'status': 'error', 'message': CURRENT_STATUS}), 400
+
+    ai_client = AIModelClient(ai_provider, request.form['ai_model'], API_KEY)
     initial_pmids = request.files['initial_file'].read().decode('utf-8').splitlines()
     goldstandard_pmids = request.files['goldstandard_file'].read().decode('utf-8').splitlines()
     prompts_df = pd.read_excel(request.files['prompts_file'])
@@ -509,10 +567,30 @@ def run_comparison():
 @app.route('/run_freeform', methods=['POST'])
 def run_freeform():
     global ENTREZ_EMAIL, API_KEY
+
+    # --- STARTUP CHECK ---
+    downloads_path = os.path.join(os.path.expanduser("~"), "Downloads")
+    if not os.access(downloads_path, os.W_OK):
+        CURRENT_STATUS = f"Error: No write permission for Downloads folder: {downloads_path}"
+        print(f"VALIDATION ERROR: No write permission for Downloads folder: {downloads_path}")
+        return jsonify({'status': 'error', 'message': CURRENT_STATUS}), 400 # Bad Request
+    # --- END CHECK ---
+
     ENTREZ_EMAIL = request.form['entrez_email']
-    API_KEY = request.form['api_key']
-    ai_client = AIModelClient(request.form['ai_provider'], request.form['ai_model'], API_KEY)
-    args = (request.form['pubmed_search'], request.form['screening_prompt'], 
+    ai_provider = request.form['ai_provider']
+
+    # Handle API key for different providers
+    if ai_provider.lower() == 'ollama':
+        API_KEY = ''  # No API key needed for Ollama
+    else:
+        API_KEY = request.form['api_key']
+        if not API_KEY.strip():
+            CURRENT_STATUS = f"Error: API key is required for {ai_provider}"
+            print(f"VALIDATION ERROR: API key is required for {ai_provider}")
+            return jsonify({'status': 'error', 'message': CURRENT_STATUS}), 400
+
+    ai_client = AIModelClient(ai_provider, request.form['ai_model'], API_KEY)
+    args = (request.form['pubmed_search'], request.form['screening_prompt'],
             request.form['screen_level'], ai_client, int(request.form.get('max_articles', 100000)))
     start_processing_thread(process_freeform_search, args)
     return jsonify({'status': 'started'})

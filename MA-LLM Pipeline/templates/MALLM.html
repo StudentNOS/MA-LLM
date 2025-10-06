@@ -118,7 +118,7 @@
             
             <div class="form-group">
                 <label for="ai_provider">AI Provider: <button type="button" class="help-btn" onclick="showModal('provider-modal')">?</button></label>
-                <select id="ai_provider" name="ai_provider" required>
+                <select id="ai_provider" name="ai_provider" required onchange="toggleApiKeyField()">
                     <option value="">Select Provider</option>
                     <option value="groq">Groq</option>
                     <option value="openai">OpenAI</option>
@@ -459,6 +459,28 @@
                 freeformContainer.classList.remove('hidden');
             }
         });
+
+        // Function to toggle API key field visibility based on provider
+        function toggleApiKeyField() {
+            const apiKeyGroup = apiKeyInput.closest('.form-group');
+            const apiKeyLabel = apiKeyGroup.querySelector('label');
+            const apiKeyError = document.getElementById('apikey-error');
+
+            if (aiProviderSelect.value === 'ollama') {
+                // Hide API key field for Ollama
+                apiKeyInput.style.display = 'none';
+                apiKeyInput.required = false;
+                apiKeyLabel.style.color = '#999';
+                apiKeyLabel.innerHTML = 'API Key: <span style="font-size: 12px; color: #666;">(Not required for local Ollama)</span> <button type="button" class="help-btn" onclick="showModal(\'apikey-modal\')">?</button>';
+                if (apiKeyError) apiKeyError.textContent = '';
+            } else {
+                // Show API key field for other providers
+                apiKeyInput.style.display = 'block';
+                apiKeyInput.required = true;
+                apiKeyLabel.style.color = '';
+                apiKeyLabel.innerHTML = 'API Key: <button type="button" class="help-btn" onclick="showModal(\'apikey-modal\')">?</button>';
+            }
+        }
 
 
 
