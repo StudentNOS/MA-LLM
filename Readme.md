@@ -8,11 +8,18 @@ This repository contains the MA-LLM screening pipeline, a tool for automated scr
 This README explains how to run the project from source, notes on the provided .exe (if any), required Python packages, common troubleshooting steps, and recommended small fixes and naming conventions. It is mainly intended for use when the provided .exe file does not work on your system (for example, on macOS or unsupported platforms).
 
 ## Table of contents
+- Recommended usage of the pipeline
 - Project Structure
 - Quick start (source / ZIP)
 - Running the Flask UI
 - Troubleshooting (common errors including HTTP 500)
 - Notes and recommendations
+
+## Recommended usage of the pipeline
+
+We have created an .exe of the code including the necessary packages and the .html file, thus it is recommended to download the latest release from Github and use the executable.
+If you are running on Linux or MacOS and you are not willing to download software to execute Windows executables you can clone the Github Repo und follow the instructions below. 
+The functionality does not differ between the executable and the python code it is just meant to enhance usability.
 
 
 ## Project structure (important files/folders)
@@ -56,6 +63,7 @@ python "MALLM_Pipeline/MALLM.py"
 - anthropic (if using Anthropic provider)
 - google-generative-ai (if using Google provider)
 - ollama (if using Ollama)
+- openpyxl
 
 ## How the web UI submits work
 
