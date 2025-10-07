@@ -23,6 +23,39 @@ import queue
 import uuid
 
 
+class TeeStream(io.TextIOBase):
+    """
+    A stream that writes to multiple destinations simultaneously.
+    Acts like a 'tee' command - output goes to both terminal and capture.
+    """
+
+    __slots__ = ('streams', 'errors')
+
+    def __init__(self, *streams):
+        self.streams = streams
+        self.errors = []  # Track any write errors
+
+    def write(self, data):
+        """Write data to all streams."""
+        for stream in self.streams:
+            try:
+                stream.write(data)
+                stream.flush()  # Ensure immediate output
+            except Exception as e:
+                # Track errors but don't stop processing
+                self.errors.append(f"Stream error: {e}")
+
+        return len(data)  # Return expected value for TextIOBase
+
+    def flush(self):
+        """Flush all streams."""
+        for stream in self.streams:
+            try:
+                stream.flush()
+            except Exception as e:
+                self.errors.append(f"Flush error: {e}")
+
+
 
 # Remove logging configuration - using print statements with timestamps instead
 
@@ -49,26 +82,27 @@ output_stream = None
 
 def setup_terminal_capture():
     """
-    Set up terminal output capture to redirect stdout and stderr.
+    Set up terminal output capture using tee approach.
+    Maintains normal terminal output while also capturing for UI.
     """
     global original_stdout, original_stderr, output_stream, TERMINAL_CAPTURE_ACTIVE
 
     if TERMINAL_CAPTURE_ACTIVE:
         return  # Already set up
 
-    # Create a StringIO object to capture output
+    # Create a StringIO object to capture output for UI
     output_stream = io.StringIO()
 
-    # Save original stdout and stderr
+    # Save original stdout and stderr (for restoration later)
     original_stdout = sys.stdout
     original_stderr = sys.stderr
 
-    # Redirect stdout and stderr to our StringIO object
-    sys.stdout = output_stream
-    sys.stderr = output_stream
+    # Create tee streams that write to both terminal and capture
+    sys.stdout = TeeStream(sys.stdout, output_stream)
+    sys.stderr = TeeStream(sys.stderr, output_stream)
 
     TERMINAL_CAPTURE_ACTIVE = True
-    print("Terminal output capture started")
+    print("Terminal output capture started (tee mode)")
 
 def restore_terminal_output():
     """

@@ -542,9 +542,6 @@
                         clearInterval(debugOutputInterval);
                     }
                     resetUI(true);
-                    setTimeout(() => {
-                        resultsLink.querySelector('button').click();
-                    }, 1000);
                 } else if (data.status.toLowerCase().includes('stopped')) {
                     clearInterval(statusInterval);
                     if (debugOutputInterval) {
