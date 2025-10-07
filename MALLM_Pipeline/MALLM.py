@@ -459,7 +459,7 @@ def process_prompts(prompts_df: pd.DataFrame, initial_pmids: List[str], goldstan
 
         with sqlite3.connect(DATABASE) as conn:
             pmids = pd.read_sql_query("SELECT pmid FROM Articles WHERE stage = 'abstracts' AND relevant = 1", conn)
-            RESULTS_DF.at[idx, 'Final_Relevant_PMIDs'] = ",".join(pmids['pmid'].tolist())
+            RESULTS_DF.at[idx, 'Final_Relevant_PMIDs'] = ",".join(pmids['pmid'].tolist()) if not pmids.empty else ""
     
     try:
         timestamp = time.strftime("%Y%m%d-%H%M%S")
@@ -606,9 +606,29 @@ def stop_processing():
 
 @app.route('/results')
 def get_results():
-    filename = "screening_results.xlsx" if 'Relevant_Articles' in RESULTS_DF.columns else "prompt_results.xlsx"
-    path = os.path.join(os.path.expanduser("~"), "Downloads", filename)
-    return send_file(path, as_attachment=True) if os.path.exists(path) else (jsonify({'error': 'No results'}), 404)
+    import glob
+
+    downloads_dir = os.path.join(os.path.expanduser("~"), "Downloads")
+
+    # Determine which type of results we're looking for
+    if 'Relevant_Articles' in RESULTS_DF.columns:
+        # Freeform search results
+        pattern = os.path.join(downloads_dir, "screening_results_*.xlsx")
+        file_list = glob.glob(pattern)
+        if file_list:
+            # Get the most recent file
+            most_recent = max(file_list, key=os.path.getmtime)
+            return send_file(most_recent, as_attachment=True)
+    else:
+        # Comparison screening results
+        pattern = os.path.join(downloads_dir, "prompt_results_*.xlsx")
+        file_list = glob.glob(pattern)
+        if file_list:
+            # Get the most recent file
+            most_recent = max(file_list, key=os.path.getmtime)
+            return send_file(most_recent, as_attachment=True)
+
+    return (jsonify({'error': 'No results found. Please ensure processing has completed successfully.'}), 404)
 
 @app.route('/export_intermediate')
 def export_intermediate():

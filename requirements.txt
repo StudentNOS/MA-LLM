@@ -6,3 +6,4 @@ anthropic
 google-generativeai
 ollama
 flask
+openpyxl
