@@ -668,16 +668,16 @@ def get_results():
 def export_intermediate():
     global RESULTS_DF
     if RESULTS_DF.empty: return jsonify({'error': 'No results to export'}), 404
-    
+
     if 'Relevant_Articles' in RESULTS_DF.columns and os.path.exists(DATABASE):
         with sqlite3.connect(DATABASE) as conn:
             pmids = pd.read_sql_query("SELECT pmid FROM Articles WHERE relevant = 1", conn)
             RESULTS_DF.at[0, 'Relevant_Articles'] = len(pmids)
             RESULTS_DF.at[0, 'Relevant_PMIDs'] = ",".join(pmids['pmid'].tolist())
-    
+
     path = os.path.join(os.path.expanduser("~"), "Downloads", "intermediate_results.xlsx")
     RESULTS_DF.to_excel(path, index=False)
-    return send_file(path, as_attachment=True)
+    return jsonify({'success': True, 'message': f'Intermediate results saved to {path}'})
 
 @app.route('/debug_stream')
 def debug_stream():

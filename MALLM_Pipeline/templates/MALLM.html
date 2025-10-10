@@ -580,15 +580,14 @@
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                return response.blob();
+                return response.json();
             })
-            .then(blob => {
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'intermediate_results.xlsx';
-                a.click();
-                window.URL.revokeObjectURL(url);
+            .then(data => {
+                if (data.success) {
+                    alert('Intermediate results saved successfully to Downloads folder!');
+                } else {
+                    throw new Error(data.error || 'Export failed');
+                }
             })
             .catch(error => {
                 console.error('Export failed:', error);
