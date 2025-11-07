@@ -61,7 +61,7 @@ MALLM$screen_section      <- relevel(MALLM$screen_section,      ref = "Title")
 
 # Table 1
 ```{r}
-outcomes <- c("sensitivity", "specificity", "Accuracy")
+outcomes <- c("recall", "precision", "F1_score", "specificity", "accuracy")
 predictors <- c("MA", "Model", "Reference", "Info", "screen_section")
 
 format_stats <- function(data, var) {
@@ -96,7 +96,7 @@ write_xlsx(result, "Table 1_Descriptive.xlsx")
 
 # Table 2
 ```{r}
-outcome <- "Accuracy"
+outcome <- "F1_score"
 predictors <- c("Words", "Reference", "Info", "screen_section", "Model")
 output <- list()
 
@@ -155,7 +155,7 @@ write_xlsx(lmm_results, "Table 2_LMMs.xlsx")
 
 # Table 3
 ```{r}
-vars <- c("Accuracy", "sensitivity", "specificity")
+vars <- c("F1_score", "recall", "precision", "specificity", "accuracy")
 MALLM$MA <- factor(MALLM$MA)
 stopifnot(nlevels(MALLM$MA) == 4)
 lvl <- levels(MALLM$MA)
@@ -226,7 +226,7 @@ write_xlsx(ANOVA_summary_wide, "Table 3_ANOVA_summary.xlsx")
 
 Table 4
 ```{r}
-metrics <- c("Accuracy","sensitivity","specificity")
+metrics <- c("F1_score","recall","precision", "specificity", "accuracy")
 
 # per-ID means and SDs
 agg_mean <- aggregate(MALLM[, metrics], by = list(ID = MALLM$PromptID), FUN = mean, na.rm = TRUE)
@@ -242,13 +242,13 @@ map <- aggregate(cbind(Prompt, Reference, Info) ~ PromptID, MALLM, FUN = functio
 names(map)[1] <- "ID"
 
 result <- merge(agg_mean, map, by = "ID")[, c("ID","Prompt","Reference","Info", metrics)]
-result <- result[order(-as.numeric(gsub("\\s*\\(.*\\)$", "", result$specificity))), ]
+result <- result[order(-as.numeric(gsub("\\s*\\(.*\\)$", "", result$F1_score))), ]
 
 write_xlsx(result, "Table 4.1_Average metrics across prompts.xlsx")
 ```
 
 ```{r}
-vars <- c("Accuracy", "sensitivity", "specificity")
+vars <- c("F1_score","recall","precision", "specificity", "accuracy")
 MALLM$ID <- factor(MALLM$PromptID)
 
 omega_boot <- function(d, i){
