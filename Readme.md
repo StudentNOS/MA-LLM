@@ -88,9 +88,8 @@ python "MALLM_Pipeline/MALLM.py"
 	- The pipeline expects columns named like `TitlePrompt`, `AbstractPrompt`, `screen_titles`, and `screen_abstracts` in the prompts Excel file. If your file uses different column names, rename them or adapt the code.
 
 ### Frontend & server behavior notes
+ttps://doi.org/10.1017/rsm.2026.10093
 
-- The UI requires `initial_file` and `goldstandard_file` (text files with PMIDs) and `prompts_file` (Excel) when you select the Comparison mode. Make sure files are uploaded in the form.
-- For Freeform mode you need to provide a PubMed search query, screening prompt, and max articles.
-- For the Ollama provider the server constructs a local client and should not require an API key. If the UI still shows the API key field for Ollama, you can safely leave it empty and start the server.
+This is an Open Access article, distributed under the terms of the Creative Commons Attribution-NoDerivatives licence (https://creativecommons.org/licenses/by-nd/4.0), which permits re-use, distribution, and reproduction in any medium, provided that no alterations are made and the original article is properly cited.
 
-## License & citation
+© The Author(s), 2026. Published by Cambridge University Press on behalf of The Society for Research Synthesis Methodology
