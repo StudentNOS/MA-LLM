@@ -88,7 +88,7 @@ python "MALLM_Pipeline/MALLM.py"
 	- The pipeline expects columns named like `TitlePrompt`, `AbstractPrompt`, `screen_titles`, and `screen_abstracts` in the prompts Excel file. If your file uses different column names, rename them or adapt the code.
 
 ### Frontend & server behavior notes
-ttps://doi.org/10.1017/rsm.2026.10093
+https://doi.org/10.1017/rsm.2026.10093
 
 This is an Open Access article, distributed under the terms of the Creative Commons Attribution-NoDerivatives licence (https://creativecommons.org/licenses/by-nd/4.0), which permits re-use, distribution, and reproduction in any medium, provided that no alterations are made and the original article is properly cited.
 
